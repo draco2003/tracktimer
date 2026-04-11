@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Command - v18</title>
+    <title>Track Command - v20</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; }
@@ -13,21 +13,23 @@
         }
         body, html { margin: 0; padding: 0; background-color: var(--bg-dark); color: white; font-family: 'Inter', system-ui, sans-serif; height: 100vh; overflow: hidden; }
 
-        /* --- UI Framework --- */
+        /* --- Header --- */
         #top-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 30px; background: #000; border-bottom: 1px solid #333; height: 55px; position: absolute; top: 0; width: 100%; z-index: 10; }
         #sys-clock { color: var(--accent); font-family: monospace; font-size: 1.6rem; font-weight: bold; }
         #brand-display { font-weight: 900; opacity: 0.6; letter-spacing: 2px; text-transform: uppercase; display: flex; gap: 10px; }
-        .top-right-controls { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-        .gear-btn { font-size: 1.3rem; color: #555; transition: 0.2s; }
-        .top-right-controls:hover .gear-btn { color: var(--accent); }
+        
+        .top-right-controls { display: flex; align-items: center; gap: 18px; }
+        .icon-btn { font-size: 1.3rem; color: #555; transition: 0.2s; cursor: pointer; }
+        .icon-btn:hover { color: var(--accent); }
 
+        /* --- Viewport --- */
         #app-viewport { display: flex; height: 100vh; width: 100vw; padding-top: 55px; }
         .rider-pane { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; border-right: 1px solid #222; transition: background-color 0.4s ease; }
         .rider-pane:last-child { border-right: none; }
         .rider-pane.hidden { display: none; }
 
-        .timer { font-size: 13vw; font-weight: 900; line-height: 0.8; font-variant-numeric: tabular-nums; }
         .p-label { font-size: 2.2rem; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 10px; }
+        .timer { font-size: 13vw; font-weight: 900; line-height: 0.8; font-variant-numeric: tabular-nums; }
         .status-label { font-size: 2.8rem; font-weight: 900; text-transform: uppercase; margin-top: 15px; }
         .sub-text { font-size: 1.4rem; opacity: 0.7; margin-top: 8px; }
         .session-tag { position: absolute; top: 20px; font-weight: bold; opacity: 0.3; font-size: 1.1rem; }
@@ -41,60 +43,33 @@
         .blink { animation: blinker 1.2s step-end infinite; }
         @keyframes blinker { 50% { opacity: 0.3; } }
 
-        /* --- Settings Overlay --- */
-        #settings-overlay { position: fixed; top: 0; right: -420px; width: 380px; height: 100%; background: var(--panel); box-shadow: -15px 0 50px rgba(0,0,0,0.9); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; padding: 20px; overflow-y: auto; border-left: 1px solid #333; }
-        #settings-overlay.open { right: 0; }
+        /* --- Side Panels --- */
+        .side-panel { position: fixed; top: 0; right: -420px; width: 380px; height: 100%; background: var(--panel); box-shadow: -15px 0 50px rgba(0,0,0,0.9); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; padding: 25px; overflow-y: auto; border-left: 1px solid #333; }
+        .side-panel.open { right: 0; }
         
+        .doc-content h3 { color: var(--accent); text-transform: uppercase; font-size: 0.9rem; margin-top: 25px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .doc-content p, .doc-content li { font-size: 0.85rem; line-height: 1.5; color: #ccc; }
+
+        /* --- Settings Layout Fixes --- */
         .section { margin-bottom: 20px; border-bottom: 1px solid #2a2a2a; padding-bottom: 15px; }
         .section-title { font-size: 0.65rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; margin-bottom: 15px; display: block; }
-
-        /* Row Logic */
-        .config-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .config-row label { flex: 1; font-size: 0.8rem; font-weight: 600; color: #ccc; margin-bottom: 0; }
+        
+        .config-row { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+        .config-field { display: flex; flex-direction: column; flex: 1; }
+        .config-field label { font-size: 0.65rem; color: #777; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; }
         
         .alert-row { display: grid; grid-template-columns: 40px 1fr 60px 40px; align-items: center; gap: 10px; margin-bottom: 12px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
-        .alert-row label { font-size: 0.75rem; font-weight: bold; color: #eee; }
-
-        /* Input Controls - Scoped to avoid switch conflict */
-        input[type="text"], input[type="number"], select, input[type="time"] { 
-            background: #000; color: #fff; border: 1px solid #444; padding: 6px 8px; border-radius: 4px; font-size: 0.85rem; 
-        }
-        input[type="number"] { width: 60px; text-align: center; }
-        input[type="time"] { width: 110px !important; }
-
-        /* Color Picker Swatch */
+        
+        input:not([type="checkbox"]):not([type="color"]), select { width: 100%; background: #000; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 0.9rem; }
         input[type="color"] { -webkit-appearance: none; border: none; width: 32px; height: 32px; padding: 0; background: none; cursor: pointer; border-radius: 4px; }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: 2px solid #333; border-radius: 4px; }
+        
+        .btn-save { background: var(--accent); color: #000; border: none; padding: 15px; width: 100%; font-weight: 900; border-radius: 4px; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
 
-        .btn-save { background: var(--accent); color: #000; border: none; padding: 12px; width: 100%; font-weight: 900; border-radius: 4px; cursor: pointer; text-transform: uppercase; margin-top: 10px; letter-spacing: 1px; }
-
-        /* --- SWITCH LOCKDOWN --- */
-        .switch { 
-            position: relative; 
-            display: inline-block !important; 
-            width: 36px !important; /* Fixed width */
-            height: 20px !important; /* Fixed height */
-            flex: 0 0 36px !important; /* Prevent flex growth/shrink */
-            cursor: pointer;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        .switch input { 
-            opacity: 0; 
-            width: 0 !important; 
-            height: 0 !important; 
-            position: absolute; 
-            margin: 0 !important;
-        }
-        .slider { 
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
-            background-color: #333; transition: .3s; border-radius: 20px; 
-        }
-        .slider:before { 
-            position: absolute; content: ""; height: 14px; width: 14px; 
-            left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; 
-        }
+        /* Switch */
+        .switch { position: relative; display: inline-block !important; width: 36px !important; height: 20px !important; flex: 0 0 36px !important; cursor: pointer; margin: 0 !important; }
+        .switch input { opacity: 0; width: 0 !important; height: 0 !important; position: absolute; }
+        .slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .3s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(16px); }
     </style>
@@ -102,72 +77,70 @@
 <body>
 
     <div id="top-bar">
-        <div><span id="sys-clock">--:--:--</span> <span id="debug-tag" style="color:#f0f; font-size:0.6rem; display:none; vertical-align: middle; margin-left:5px;">DEBUG</span></div>
-        <div id="brand-display"><span id="header-brand-name">ROWE</span> <span id="header-brand-number">#418</span></div>
-        <div class="top-right-controls" onclick="toggleSettings()">
-            <div id="top-title-text" style="font-size: 0.75rem; opacity: 0.6; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Track Command</div>
-            <i class="fas fa-cog gear-btn"></i>
+        <div><span id="sys-clock">--:--:--</span> <span id="debug-tag" style="color:#f0f; font-size:0.6rem; display:none; margin-left:5px;">DEBUG</span></div>
+        <div id="brand-display"><span id="header-brand-name">RACE</span> <span id="header-brand-number">#000</span></div>
+        <div class="top-right-controls">
+            <div id="top-title-text" style="font-size: 0.75rem; opacity: 0.6; font-weight: 800; text-transform: uppercase;">Track Command</div>
+            <i class="fas fa-question-circle icon-btn" onclick="togglePanel('help-overlay')"></i>
+            <i class="fas fa-cog icon-btn" onclick="togglePanel('settings-overlay')"></i>
         </div>
     </div>
 
     <div id="app-viewport">
-        <div id="pane-1" class="rider-pane"><div id="p1-session" class="session-tag">SESSION -/-</div><div id="p1-name" class="p-label">Rider 1</div><div id="p1-timer" class="timer">--:--</div><div id="p1-status" class="status-label">STANDBY</div><div id="p1-sub" class="sub-text">System Ready</div></div>
-        <div id="pane-2" class="rider-pane hidden"><div id="p2-session" class="session-tag">SESSION -/-</div><div id="p2-name" class="p-label">Rider 2</div><div id="p2-timer" class="timer">--:--</div><div id="p2-status" class="status-label">STANDBY</div><div id="p2-sub" class="sub-text">System Ready</div></div>
+        <div id="pane-1" class="rider-pane"><div id="p1-session" class="session-tag">SESSION -/-</div><div id="p1-name" class="p-label">Rider 1</div><div id="p1-timer" class="timer">--:--</div><div id="p1-status" class="status-label">STANDBY</div><div id="p1-sub" class="sub-text">Ready</div></div>
+        <div id="pane-2" class="rider-pane hidden"><div id="p2-session" class="session-tag">SESSION -/-</div><div id="p2-name" class="p-label">Rider 2</div><div id="p2-timer" class="timer">--:--</div><div id="p2-status" class="status-label">STANDBY</div><div id="p2-sub" class="sub-text">Ready</div></div>
     </div>
 
-    <div id="settings-overlay">
+    <div id="help-overlay" class="side-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;"><h2>Documentation</h2><i class="fas fa-times icon-btn" onclick="togglePanel('help-overlay')"></i></div>
+        <div class="doc-content">
+            <h3>Overview</h3><p>Track Command is a high-visibility dashboard designed for the paddock.</p>
+            <h3>Configuration</h3><p>Set your rotation slot (e.g., <code>:20</code>) and the app will automate your schedule.</p>
+            <h3>Persistence</h3><p>Settings are saved locally to your browser.</p>
+        </div>
+    </div>
+
+    <div id="settings-overlay" class="side-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><h2>Settings</h2><i class="fas fa-times icon-btn" onclick="togglePanel('settings-overlay')"></i></div>
+        
         <div class="section">
-            <span class="section-title">Branding</span>
-            <div class="config-row"><label>Display</label><input type="text" id="brand-name-in" placeholder="ROWE" style="flex:2"><input type="text" id="brand-num-in" placeholder="#418" style="flex:1"></div>
+            <span class="section-title">Team Branding</span>
+            <div class="config-row">
+                <div class="config-field" style="flex: 2;"><label>Team / Rider Name</label><input type="text" id="brand-name-in" placeholder="e.g. ROWE"></div>
+                <div class="config-field" style="flex: 1;"><label>Racer #</label><input type="text" id="brand-num-in" placeholder="#418"></div>
+            </div>
+            <div class="config-field"><label>Dashboard Menu Title</label><input type="text" id="menu-label-in" placeholder="Track Command"></div>
         </div>
 
         <div class="section">
-            <span class="section-title">Global Schedule</span>
-            <div class="config-row"><label>1st Session Hr</label><input type="number" id="start-hour" value="9"></div>
-            <div class="config-row"><label>Lunch Break</label><select id="lunch-hour" style="width:110px"><option value="12">12:00 PM</option><option value="13">1:00 PM</option></select></div>
-            <div class="config-row"><label>Rotation Length</label><select id="rot-length" onchange="updateSlots()" style="width:110px"><option value="20">20 Minutes</option><option value="15">15 Minutes</option></select></div>
-            <div class="config-row"><label>Clock Format</label><select id="clock-fmt" style="width:110px"><option value="24">24-Hour</option><option value="12">AM/PM</option></select></div>
+            <span class="section-title">Alert Logic & Theme</span>
+            <div class="alert-row"><label class="switch"><input type="checkbox" id="mtg-enabled"><span class="slider"></span></label><label>Meeting</label><input type="time" id="riders-time" style="grid-column: span 2; width:100% !important;"></div>
+            <div class="alert-row"><label class="switch"><input type="checkbox" id="wu-enabled"><span class="slider"></span></label><label>Warmup</label><input type="number" id="wu-time"><input type="color" id="clr-warmup"></div>
+            <div class="alert-row"><label class="switch"><input type="checkbox" id="gu-enabled"><span class="slider"></span></label><label>Gear Up</label><input type="number" id="gu-time"><input type="color" id="clr-gearup"></div>
+            <div class="alert-row"><label class="switch"><input type="checkbox" id="sp-enabled"><span class="slider"></span></label><label>Stand Prep</label><input type="number" id="sp-time"><input type="color" id="clr-ending"></div>
         </div>
 
         <div class="section">
-            <span class="section-title">Alert Configurations</span>
-            <div class="alert-row">
-                <label class="switch"><input type="checkbox" id="mtg-enabled"><span class="slider"></span></label>
-                <label>Riders Meeting</label>
-                <input type="time" id="riders-time" style="grid-column: span 2; width: 100% !important;">
-            </div>
-            <div class="alert-row">
-                <label class="switch"><input type="checkbox" id="wu-enabled"><span class="slider"></span></label>
-                <label>Warmup Alert</label>
-                <input type="number" id="wu-time" placeholder="Min">
-                <input type="color" id="clr-warmup">
-            </div>
-            <div class="alert-row">
-                <label class="switch"><input type="checkbox" id="gu-enabled"><span class="slider"></span></label>
-                <label>Gear Up Alert</label>
-                <input type="number" id="gu-time" placeholder="Min">
-                <input type="color" id="clr-gearup">
-            </div>
-            <div class="alert-row">
-                <label class="switch"><input type="checkbox" id="sp-enabled"><span class="slider"></span></label>
-                <label>Stand Prep</label>
-                <input type="number" id="sp-time" placeholder="Min">
-                <input type="color" id="clr-ending">
+            <span class="section-title">Schedule</span>
+            <div class="config-row"><div class="config-field"><label>1st Session Hr</label><input type="number" id="start-hour" value="9"></div></div>
+            <div class="config-row">
+                <div class="config-field"><label>Rotation</label><select id="rot-length" onchange="updateSlots()"><option value="20">20m</option><option value="15">15m</option></select></div>
+                <div class="config-field"><label>Clock Format</label><select id="clock-fmt"><option value="24">24-Hr</option><option value="12">AM/PM</option></select></div>
             </div>
         </div>
 
         <div class="section">
             <span class="section-title">Riders</span>
-            <div class="config-row"><label>Rider 1 Name</label><input type="text" id="p1-label-in" style="flex:2"><select id="p1-slot-in" style="flex:1"></select></div>
-            <div class="config-row" style="margin-top:15px"><label>Enable Split View</label><label class="switch"><input type="checkbox" id="s-enabled"><span class="slider"></span></label></div>
-            <div class="config-row"><label>Rider 2 Name</label><input type="text" id="p2-label-in" style="flex:2"><select id="p2-slot-in" style="flex:1"></select></div>
+            <div class="config-row"><div class="config-field"><label>Rider 1 Name</label><input type="text" id="p1-label-in"></div><div class="config-field" style="flex:0.5"><label>Slot</label><select id="p1-slot-in"></select></div></div>
+            <div class="config-row"><label>Enable Split View</label><label class="switch"><input type="checkbox" id="s-enabled"><span class="slider"></span></label></div>
+            <div class="config-row"><div class="config-field"><label>Rider 2 Name</label><input type="text" id="p2-label-in"></div><div class="config-field" style="flex:0.5"><label>Slot</label><select id="p2-slot-in"></select></div></div>
         </div>
 
         <div class="section">
             <span class="section-title">Advanced</span>
-            <div class="config-row"><label>Debug Override</label><label class="switch"><input type="checkbox" id="dbg-on"><span class="slider"></span></label></div>
-            <div class="config-row"><label>System Time</label><input type="time" id="dbg-time" step="1"></div>
-            <div class="config-row"><label>Accent Color</label><input type="color" id="clr-accent" value="#22ff00"></div>
+            <div class="config-row"><label>Override Time</label><label class="switch"><input type="checkbox" id="dbg-on"><span class="slider"></span></label></div>
+            <div class="config-row"><div class="config-field"><label>System Time Override</label><input type="time" id="dbg-time" step="1"></div></div>
+            <div class="config-row"><label>Accent Color</label><input type="color" id="clr-accent"></div>
         </div>
 
         <button class="btn-save" onclick="save()">Apply All Changes</button>
@@ -177,7 +150,12 @@
     <script>
         let p1Sched = [], p2Sched = [], offset = 0, meetingTime = null;
 
-        function toggleSettings() { document.getElementById('settings-overlay').classList.toggle('open'); }
+        function togglePanel(id) {
+            const panels = ['settings-overlay', 'help-overlay'];
+            panels.forEach(p => { if(p !== id) document.getElementById(p).classList.remove('open'); });
+            document.getElementById(id).classList.toggle('open');
+        }
+
         function updateSlots() {
             const len = parseInt(document.getElementById('rot-length').value) || 20;
             const p1 = document.getElementById('p1-slot-in'), p2 = document.getElementById('p2-slot-in');
@@ -188,11 +166,10 @@
 
         function save() {
             const data = {
-                brand: { name: document.getElementById('brand-name-in').value || "ROWE", num: document.getElementById('brand-num-in').value || "#418" },
-                sh: document.getElementById('start-hour').value, lh: document.getElementById('lunch-hour').value,
-                rl: document.getElementById('rot-length').value, cf: document.getElementById('clock-fmt').value,
-                p1l: document.getElementById('p1-label-in').value, p1s: document.getElementById('p1-slot-in').value,
-                p2e: document.getElementById('s-enabled').checked, p2l: document.getElementById('p2-label-in').value, p2s: document.getElementById('p2-slot-in').value,
+                brand: { name: document.getElementById('brand-name-in').value || "ROWE", num: document.getElementById('brand-num-in').value || "#418", menu: document.getElementById('menu-label-in').value || "Track Command" },
+                sh: document.getElementById('start-hour').value, rl: document.getElementById('rot-length').value, cf: document.getElementById('clock-fmt').value,
+                p1l: document.getElementById('p1-label-in').value || "Rider 1", p1s: document.getElementById('p1-slot-in').value,
+                p2e: document.getElementById('s-enabled').checked, p2l: document.getElementById('p2-label-in').value || "Rider 2", p2s: document.getElementById('p2-slot-in').value,
                 db: document.getElementById('dbg-on').checked, dt: document.getElementById('dbg-time').value,
                 alerts: {
                     mtg: document.getElementById('mtg-enabled').checked, mtgTime: document.getElementById('riders-time').value,
@@ -202,22 +179,28 @@
                 },
                 colors: { accent: document.getElementById('clr-accent').value, warmup: document.getElementById('clr-warmup').value, gearup: document.getElementById('clr-gearup').value, ending: document.getElementById('clr-ending').value }
             };
-            localStorage.setItem('track_cmd_v18', JSON.stringify(data));
-            init(); toggleSettings();
+            localStorage.setItem('track_cmd_v20', JSON.stringify(data));
+            init(); togglePanel('settings-overlay');
         }
 
         function init() {
-            const cfg = JSON.parse(localStorage.getItem('track_cmd_v18')) || { alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
-            const root = document.documentElement;
-            if(cfg.brand) { document.getElementById('header-brand-name').innerText = cfg.brand.name; document.getElementById('header-brand-number').innerText = cfg.brand.num; }
-            if(cfg.colors) { root.style.setProperty('--accent', cfg.colors.accent); root.style.setProperty('--warmup', cfg.colors.warmup); root.style.setProperty('--gearup', cfg.colors.gearup); root.style.setProperty('--ending', cfg.colors.ending); }
+            const cfg = JSON.parse(localStorage.getItem('track_cmd_v20')) || { brand: { name: "ROWE", num: "#418", menu: "Track Command" }, alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
+            
+            document.getElementById('brand-name-in').value = cfg.brand?.name || "ROWE";
+            document.getElementById('brand-num-in').value = cfg.brand?.num || "#418";
+            document.getElementById('menu-label-in').value = cfg.brand?.menu || "Track Command";
+            
+            document.getElementById('header-brand-name').innerText = cfg.brand?.name || "ROWE";
+            document.getElementById('header-brand-number').innerText = cfg.brand?.num || "#418";
+            document.getElementById('top-title-text').innerText = cfg.brand?.menu || "Track Command";
+
+            if(cfg.colors) { const r = document.documentElement; r.style.setProperty('--accent', cfg.colors.accent); r.style.setProperty('--warmup', cfg.colors.warmup); r.style.setProperty('--gearup', cfg.colors.gearup); r.style.setProperty('--ending', cfg.colors.ending); }
             
             p1Sched = []; p2Sched = [];
             const [mH, mM] = (cfg.alerts?.mtgTime || "08:00").split(':').map(Number);
             meetingTime = new Date(); meetingTime.setHours(mH, mM, 0, 0);
 
             for(let h=parseInt(cfg.sh)||9; h<=17; h++) {
-                if(h === parseInt(cfg.lh)) continue;
                 p1Sched.push(new Date(new Date().setHours(h, parseInt(cfg.p1s)||0, 0, 0)));
                 p2Sched.push(new Date(new Date().setHours(h, parseInt(cfg.p2s)||20, 0, 0)));
             }
@@ -231,7 +214,7 @@
 
             if (alerts.mtg && now < meetingTime) {
                 pane.className = 'rider-pane state-meeting'; timerEl.innerText = formatTime(meetingTime - now);
-                statusEl.innerText = 'RIDERS MEETING'; subEl.innerText = `Starts at ${meetingTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:is12})}`;
+                statusEl.innerText = 'RIDERS MEETING'; subEl.innerText = `Briefing at ${meetingTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:is12})}`;
                 return;
             }
 
@@ -256,7 +239,7 @@
         }
 
         function tick() {
-            const cfg = JSON.parse(localStorage.getItem('track_cmd_v18')) || { alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
+            const cfg = JSON.parse(localStorage.getItem('track_cmd_v20')) || { alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
             const now = new Date(Date.now() + offset);
             processRider('pane-1', p1Sched, now, parseInt(cfg.rl)||20, cfg.cf==='12', cfg.p1l||"Rider 1", cfg.alerts);
             if (cfg.p2e) processRider('pane-2', p2Sched, now, parseInt(cfg.rl)||20, cfg.cf==='12', cfg.p2l||"Rider 2", cfg.alerts);
@@ -266,12 +249,11 @@
         function formatTime(ms) { const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000); return `${m}:${s.toString().padStart(2,'0')}`; }
 
         window.onload = () => {
-            updateSlots(); const saved = localStorage.getItem('track_cmd_v18');
+            updateSlots(); const saved = localStorage.getItem('track_cmd_v20');
             if(saved) {
                 const c = JSON.parse(saved);
-                document.getElementById('brand-name-in').value = c.brand?.name || ""; document.getElementById('brand-num-in').value = c.brand?.num || "";
-                document.getElementById('start-hour').value = c.sh; document.getElementById('lunch-hour').value = c.lh;
-                document.getElementById('rot-length').value = c.rl; updateSlots();
+                document.getElementById('brand-name-in').value = c.brand?.name || ""; document.getElementById('brand-num-in').value = c.brand?.num || ""; document.getElementById('menu-label-in').value = c.brand?.menu || "";
+                document.getElementById('start-hour').value = c.sh; document.getElementById('rot-length').value = c.rl; updateSlots();
                 document.getElementById('clock-fmt').value = c.cf; document.getElementById('p1-label-in').value = c.p1l;
                 document.getElementById('p1-slot-in').value = c.p1s; document.getElementById('s-enabled').checked = c.p2e;
                 document.getElementById('p2-label-in').value = c.p2l; document.getElementById('p2-slot-in').value = c.p2s;
