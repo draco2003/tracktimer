@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Command - v15</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Global Reset */
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg-dark: #050505;
+            --accent: #22ff00;
+            --warmup: #ffaa00;
+            --gearup: #ff0000;
+            --ending: #00ccff; 
+            --meeting: #0044ff;
+            --panel: #1a1a1a;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Inter', system-ui, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- UI Components --- */
+        #top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 30px; background: rgba(0,0,0,0.9);
+            border-bottom: 1px solid #333; height: 55px;
+            position: absolute; top: 0; width: 100%; z-index: 10;
+        }
+        #sys-clock { color: var(--accent); font-family: monospace; font-size: 1.6rem; font-weight: bold; }
+        #brand-display { font-weight: 900; opacity: 0.6; letter-spacing: 2px; text-transform: uppercase; display: flex; gap: 10px; }
+        .top-right-controls { display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .gear-btn { font-size: 1.4rem; color: #666; transition: 0.3s; }
+        .top-right-controls:hover .gear-btn { color: var(--accent); }
+
+        #app-viewport { display: flex; height: 100vh; width: 100vw; padding-top: 55px; }
+        .rider-pane { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; border-right: 1px solid #222; transition: background-color 0.4s ease; }
+        .rider-pane:last-child { border-right: none; }
+        .rider-pane.hidden { display: none; }
+
+        /* --- Typography --- */
+        .p-label { font-size: 2.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 10px; }
+        .timer { font-size: 14vw; font-weight: 900; line-height: 0.8; font-variant-numeric: tabular-nums; }
+        .status-label { font-size: 3rem; font-weight: 900; text-transform: uppercase; margin-top: 20px; }
+        .sub-text { font-size: 1.5rem; opacity: 0.7; margin-top: 10px; }
+        .session-tag { position: absolute; top: 20px; font-weight: bold; opacity: 0.4; font-size: 1.2rem; }
+
+        /* --- States --- */
+        .state-warmup { background-color: var(--warmup); color: black; }
+        .state-gearup { background-color: var(--gearup); color: white; }
+        .state-ending { background-color: var(--ending); color: white; }
+        .state-meeting { background-color: var(--meeting); color: white; }
+        .state-ready { background-color: var(--bg-dark); color: white; }
+        .state-warmup .timer, .state-warmup .p-label { color: black; }
+        .state-warmup .sub-text { color: rgba(0,0,0,0.6); }
+        .blink { animation: blinker 1.2s step-end infinite; }
+        @keyframes blinker { 50% { opacity: 0.3; } }
+
+        /* --- Settings Panel --- */
+        #settings-overlay {
+            position: fixed; top: 0; right: -420px; width: 380px; height: 100%;
+            background: var(--panel); box-shadow: -10px 0 50px rgba(0,0,0,0.9);
+            transition: 0.3s ease-out; z-index: 1000; padding: 25px;
+            overflow-y: auto; border-left: 2px solid #444;
+        }
+        #settings-overlay.open { right: 0; }
+        .setting-section { margin-bottom: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; }
+        .section-header { font-size: 0.7rem; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .toggle-row > label:first-child { margin-bottom: 0; flex: 1; font-size: 0.75rem; color: #aaa; font-weight: bold; }
+
+        /* Target text inputs and selects only */
+        input[type="text"], input[type="number"], input[type="time"], select { 
+            width: 100%; 
+            background: #000; 
+            color: #fff; 
+            border: 1px solid #444; 
+            padding: 10px; 
+            margin-bottom: 12px; 
+            border-radius: 4px; 
+            font-size: 0.9rem;
+            display: block;
+        }
+
+        .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        .color-picker-group { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .color-picker-group input[type="color"] { width: 35px; height: 35px; padding: 0; border: none; background: none; cursor: pointer; margin-bottom: 0; }
+
+        .btn-save { background: var(--accent); color: #000; border: none; padding: 15px; width: 100%; font-weight: 900; border-radius: 4px; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
+
+        /* --- Corrected Toggle Switch --- */
+        .switch { 
+            position: relative; 
+            display: inline-block; 
+            width: 44px; 
+            height: 22px; 
+            flex-shrink: 0; 
+            cursor: pointer;
+        }
+        .switch input { 
+            opacity: 0; 
+            width: 0; 
+            height: 0; 
+            position: absolute;
+        }
+        .slider { 
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: #333; transition: .4s; border-radius: 34px; 
+        }
+        .slider:before { 
+            position: absolute; content: ""; height: 16px; width: 16px; 
+            left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; 
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(22px); }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <div><span id="sys-clock">--:--:--</span> <span id="debug-tag" style="color:#f0f; font-size:0.7rem; display:none;">DEBUG MODE</span></div>
+        <div id="brand-display">
+            <span id="header-brand-name">RACE</span>
+            <span id="header-brand-number">#000</span>
+        </div>
+        <div class="top-right-controls" onclick="toggleSettings()">
+            <div id="top-title-text" style="font-size: 0.8rem; opacity: 0.7; font-weight: bold; text-transform: uppercase;">Track Command</div>
+            <i class="fas fa-cog gear-btn"></i>
+        </div>
+    </div>
+
+    <div id="app-viewport">
+        <div id="pane-1" class="rider-pane">
+            <div id="p1-session" class="session-tag">SESSION -/-</div>
+            <div id="p1-name" class="p-label">Rider 1</div>
+            <div id="p1-timer" class="timer">--:--</div>
+            <div id="p1-status" class="status-label">STANDBY</div>
+            <div id="p1-sub" class="sub-text">Ready</div>
+        </div>
+
+        <div id="pane-2" class="rider-pane">
+            <div id="p2-session" class="session-tag">SESSION -/-</div>
+            <div id="p2-name" class="p-label">Rider 2</div>
+            <div id="p2-timer" class="timer">--:--</div>
+            <div id="p2-status" class="status-label">STANDBY</div>
+            <div id="p2-sub" class="sub-text">Ready</div>
+        </div>
+    </div>
+
+    <div id="settings-overlay">
+        <h2 style="margin-top:0">Settings</h2>
+        
+        <div class="setting-section">
+            <div class="section-header">App Branding</div>
+            <div class="color-grid">
+                <div><label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Name</label><input type="text" id="brand-name-in"></div>
+                <div><label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Number</label><input type="text" id="brand-num-in"></div>
+            </div>
+            <label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Menu Title</label><input type="text" id="menu-label-in">
+        </div>
+
+        <div class="setting-section">
+            <div class="section-header">Theme Colors</div>
+            <div class="color-grid">
+                <div class="color-picker-group"><input type="color" id="clr-accent" value="#22ff00"><label style="font-size:0.75rem; color:#aaa; font-weight:bold;">Accent</label></div>
+                <div class="color-picker-group"><input type="color" id="clr-warmup" value="#ffaa00"><label style="font-size:0.75rem; color:#aaa; font-weight:bold;">Warmup</label></div>
+                <div class="color-picker-group"><input type="color" id="clr-gearup" value="#ff0000"><label style="font-size:0.75rem; color:#aaa; font-weight:bold;">Gear Up</label></div>
+                <div class="color-picker-group"><input type="color" id="clr-ending" value="#00ccff"><label style="font-size:0.75rem; color:#aaa; font-weight:bold;">Ending</label></div>
+                <div class="color-picker-group"><input type="color" id="clr-meeting" value="#0044ff"><label style="font-size:0.75rem; color:#aaa; font-weight:bold;">Meeting</label></div>
+            </div>
+        </div>
+
+        <div class="setting-section">
+            <div class="section-header">Schedule</div>
+            <label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Riders Meeting</label><input type="time" id="riders-time" value="08:00">
+            <div class="color-grid">
+                <div><label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">1st Session</label><input type="number" id="start-hour" value="9"></div>
+                <div><label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Lunch Hr</label><select id="lunch-hour"><option value="12">12 PM</option><option value="13">1 PM</option></select></div>
+            </div>
+            <div class="color-grid">
+                <div><label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Rotation</label><select id="rot-length" onchange="updateSlots()"><option value="20">20m</option><option value="15">15m</option></select></div>
+                <div><label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Clock</label><select id="clock-fmt"><option value="24">24-Hr</option><option value="12">AM/PM</option></select></div>
+            </div>
+        </div>
+
+        <div class="setting-section">
+            <div class="section-header">Rider 1 (Primary)</div>
+            <label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Name</label><input type="text" id="p1-label-in">
+            <label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Slot</label><select id="p1-slot-in"></select>
+        </div>
+
+        <div class="setting-section">
+            <div class="section-header">Rider 2 (Split View)</div>
+            <div class="toggle-row">
+                <label>Enable Split Screen</label>
+                <label class="switch">
+                    <input type="checkbox" id="s-enabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Name</label><input type="text" id="p2-label-in">
+            <label style="color:#aaa; font-size:0.75rem; font-weight:bold; margin-bottom:4px; display:block;">Slot</label><select id="p2-slot-in"></select>
+        </div>
+
+        <div class="setting-section">
+            <div class="section-header">Developer Tools</div>
+            <div class="toggle-row">
+                <label>Enable Override</label>
+                <label class="switch">
+                    <input type="checkbox" id="dbg-on">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <input type="time" id="dbg-time" step="1" value="08:55:00">
+        </div>
+
+        <button class="btn-save" onclick="save()">Save and Sync</button>
+        <p style="font-size:0.6rem; color:#444; margin-top:15px; text-align:center; cursor:pointer;" onclick="localStorage.clear(); location.reload();">Hard Reset Data</p>
+    </div>
+
+    <script>
+        let p1Sched = [], p2Sched = [], offset = 0, meetingTime = null;
+
+        function toggleSettings() { document.getElementById('settings-overlay').classList.toggle('open'); }
+
+        function updateSlots() {
+            const len = parseInt(document.getElementById('rot-length').value) || 20;
+            const p1 = document.getElementById('p1-slot-in'); const p2 = document.getElementById('p2-slot-in');
+            if(!p1 || !p2) return;
+            p1.innerHTML = ''; p2.innerHTML = '';
+            const steps = len === 20 ? [0, 20, 40] : [0, 15, 30, 45];
+            steps.forEach(m => {
+                const txt = `:${m.toString().padStart(2, '0')}`;
+                p1.add(new Option(txt, m)); p2.add(new Option(txt, m));
+            });
+        }
+
+        function save() {
+            const data = {
+                brand: {
+                    name: document.getElementById('brand-name-in').value || "ROWE",
+                    num: document.getElementById('brand-num-in').value || "#418",
+                    menu: document.getElementById('menu-label-in').value || "Track Command"
+                },
+                rt: document.getElementById('riders-time').value,
+                sh: document.getElementById('start-hour').value,
+                lh: document.getElementById('lunch-hour').value,
+                rl: document.getElementById('rot-length').value,
+                cf: document.getElementById('clock-fmt').value,
+                p1l: document.getElementById('p1-label-in').value,
+                p1s: document.getElementById('p1-slot-in').value,
+                p2e: document.getElementById('s-enabled').checked,
+                p2l: document.getElementById('p2-label-in').value,
+                p2s: document.getElementById('p2-slot-in').value,
+                db: document.getElementById('dbg-on').checked,
+                dt: document.getElementById('dbg-time').value,
+                colors: {
+                    accent: document.getElementById('clr-accent').value,
+                    warmup: document.getElementById('clr-warmup').value,
+                    gearup: document.getElementById('clr-gearup').value,
+                    ending: document.getElementById('clr-ending').value,
+                    meeting: document.getElementById('clr-meeting').value
+                }
+            };
+            localStorage.setItem('track_cmd_cfg', JSON.stringify(data));
+            init(); toggleSettings();
+        }
+
+        function init() {
+            const cfg = JSON.parse(localStorage.getItem('track_cmd_cfg')) || {};
+            if(cfg.brand) {
+                document.getElementById('header-brand-name').innerText = cfg.brand.name || "ROWE";
+                document.getElementById('header-brand-number').innerText = cfg.brand.num || "#418";
+                document.getElementById('top-title-text').innerText = cfg.brand.menu || "Track Command";
+            }
+            if(cfg.colors) {
+                const root = document.documentElement;
+                root.style.setProperty('--accent', cfg.colors.accent);
+                root.style.setProperty('--warmup', cfg.colors.warmup);
+                root.style.setProperty('--gearup', cfg.colors.gearup);
+                root.style.setProperty('--ending', cfg.colors.ending);
+                root.style.setProperty('--meeting', cfg.colors.meeting);
+            }
+            p1Sched = []; p2Sched = [];
+            const startH = parseInt(cfg.sh) || 9;
+            const lunchH = parseInt(cfg.lh) || 12;
+            const [mH, mM] = (cfg.rt || "08:00").split(':').map(Number);
+            meetingTime = new Date(); meetingTime.setHours(mH, mM, 0, 0);
+            for(let h=startH; h<=17; h++) {
+                if(h === lunchH) continue;
+                let d1 = new Date(); d1.setHours(h, parseInt(cfg.p1s)||0, 0, 0); p1Sched.push(d1);
+                let d2 = new Date(); d2.setHours(h, parseInt(cfg.p2s)||20, 0, 0); p2Sched.push(d2);
+            }
+            if(cfg.db) {
+                const [hh, mm, ss] = cfg.dt.split(':').map(Number);
+                const f = new Date(); f.setHours(hh, mm, ss || 0);
+                offset = f - new Date();
+                document.getElementById('debug-tag').style.display = 'inline';
+            } else { offset = 0; document.getElementById('debug-tag').style.display = 'none'; }
+            document.getElementById('pane-2').className = cfg.p2e ? 'rider-pane' : 'rider-pane hidden';
+        }
+
+        function processRider(paneId, schedule, now, len, is12, label) {
+            const pane = document.getElementById(paneId);
+            const timerEl = pane.querySelector('.timer');
+            const statusEl = pane.querySelector('.status-label');
+            const subEl = pane.querySelector('.sub-text');
+            const sessionEl = pane.querySelector('.session-tag');
+            pane.querySelector('.p-label').innerText = label;
+
+            if (now < meetingTime) {
+                pane.className = 'rider-pane state-meeting';
+                timerEl.innerText = formatTime(meetingTime - now);
+                statusEl.innerText = 'RIDERS MEETING';
+                subEl.innerText = `Briefing at ${meetingTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:is12})}`;
+                return;
+            }
+
+            const idx = schedule.findIndex(s => (s.getTime() + len*60000) > now.getTime());
+            if (idx === -1) {
+                pane.className = 'rider-pane state-ready';
+                statusEl.innerText = "DAY COMPLETE"; timerEl.innerText = "--:--";
+                return;
+            }
+
+            const start = schedule[idx];
+            const end = new Date(start.getTime() + len*60000);
+            sessionEl.innerText = `SESSION ${idx + 1} OF ${schedule.length}`;
+
+            if (now < start) {
+                const diff = start - now;
+                timerEl.innerText = formatTime(diff);
+                subEl.innerText = `Starts at ${start.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:is12})}`;
+                if (diff < 300000) { pane.className = 'rider-pane state-gearup'; statusEl.innerText = 'GEAR UP'; }
+                else if (diff < 600000) { pane.className = 'rider-pane state-warmup'; statusEl.innerText = 'WARM UP'; }
+                else { pane.className = 'rider-pane state-ready'; statusEl.innerText = 'READY'; }
+            } else {
+                const diffEnd = end - now;
+                timerEl.innerText = formatTime(diffEnd);
+                subEl.innerText = 'ON TRACK';
+                if (diffEnd < 180000) { pane.className = 'rider-pane state-ending blink'; statusEl.innerText = 'GET STANDS'; }
+                else { pane.className = 'rider-pane state-ready'; statusEl.innerText = 'HOT SESSION'; }
+            }
+        }
+
+        function tick() {
+            const cfg = JSON.parse(localStorage.getItem('track_cmd_cfg')) || {};
+            const now = new Date(Date.now() + offset);
+            const is12 = cfg.cf === '12';
+            const len = parseInt(cfg.rl) || 20;
+            document.getElementById('sys-clock').innerText = now.toLocaleTimeString([], {hour12:is12, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            processRider('pane-1', p1Sched, now, len, is12, cfg.p1l || "Rider 1");
+            if (cfg.p2e) processRider('pane-2', p2Sched, now, len, is12, cfg.p2l || "Rider 2");
+        }
+
+        function formatTime(ms) {
+            const m = Math.floor(ms/60000); const s = Math.floor((ms%60000)/1000);
+            return `${m}:${s.toString().padStart(2,'0')}`;
+        }
+
+        window.onload = () => {
+            updateSlots();
+            const saved = localStorage.getItem('track_cmd_cfg');
+            if(saved) {
+                const c = JSON.parse(saved);
+                document.getElementById('brand-name-in').value = c.brand?.name || "ROWE";
+                document.getElementById('brand-num-in').value = c.brand?.num || "#418";
+                document.getElementById('menu-label-in').value = c.brand?.menu || "Track Command";
+                document.getElementById('riders-time').value = c.rt || "08:00";
+                document.getElementById('start-hour').value = c.sh || 9;
+                document.getElementById('lunch-hour').value = c.lh || 12;
+                document.getElementById('rot-length').value = c.rl || 20;
+                updateSlots();
+                document.getElementById('clock-fmt').value = c.cf || "24";
+                document.getElementById('p1-label-in').value = c.p1l || "Rider 1";
+                document.getElementById('p1-slot-in').value = c.p1s || 0;
+                document.getElementById('s-enabled').checked = c.p2e || false;
+                document.getElementById('p2-label-in').value = c.p2l || "Rider 2";
+                document.getElementById('p2-slot-in').value = c.p2s || 20;
+                document.getElementById('dbg-on').checked = c.db;
+                document.getElementById('dbg-time').value = c.dt || "07:55:00";
+                if(c.colors) {
+                    document.getElementById('clr-accent').value = c.colors.accent;
+                    document.getElementById('clr-warmup').value = c.colors.warmup;
+                    document.getElementById('clr-gearup').value = c.colors.gearup;
+                    document.getElementById('clr-ending').value = c.colors.ending;
+                    document.getElementById('clr-meeting').value = c.colors.meeting;
+                }
+            }
+            init(); setInterval(tick, 1000);
+        };
+    </script>
+</body>
+</html>
