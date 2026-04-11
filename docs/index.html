@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Command - v20</title>
+    <title>Track Command - v22</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; }
@@ -13,7 +13,7 @@
         }
         body, html { margin: 0; padding: 0; background-color: var(--bg-dark); color: white; font-family: 'Inter', system-ui, sans-serif; height: 100vh; overflow: hidden; }
 
-        /* --- Header --- */
+        /* --- UI Framework --- */
         #top-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 30px; background: #000; border-bottom: 1px solid #333; height: 55px; position: absolute; top: 0; width: 100%; z-index: 10; }
         #sys-clock { color: var(--accent); font-family: monospace; font-size: 1.6rem; font-weight: bold; }
         #brand-display { font-weight: 900; opacity: 0.6; letter-spacing: 2px; text-transform: uppercase; display: flex; gap: 10px; }
@@ -22,7 +22,6 @@
         .icon-btn { font-size: 1.3rem; color: #555; transition: 0.2s; cursor: pointer; }
         .icon-btn:hover { color: var(--accent); }
 
-        /* --- Viewport --- */
         #app-viewport { display: flex; height: 100vh; width: 100vw; padding-top: 55px; }
         .rider-pane { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; border-right: 1px solid #222; transition: background-color 0.4s ease; }
         .rider-pane:last-child { border-right: none; }
@@ -34,35 +33,38 @@
         .sub-text { font-size: 1.4rem; opacity: 0.7; margin-top: 8px; }
         .session-tag { position: absolute; top: 20px; font-weight: bold; opacity: 0.3; font-size: 1.1rem; }
 
-        /* States */
+        /* Background States - Scoped to avoid panel leakage */
         .state-warmup { background-color: var(--warmup); color: black; }
         .state-gearup { background-color: var(--gearup); color: white; }
         .state-ending { background-color: var(--ending); color: white; }
         .state-meeting { background-color: var(--meeting); color: white; }
-        .state-warmup .timer, .state-warmup .p-label { color: black; }
+        .state-warmup .timer, .state-warmup .p-label, .state-warmup .status-label { color: black; }
         .blink { animation: blinker 1.2s step-end infinite; }
         @keyframes blinker { 50% { opacity: 0.3; } }
 
         /* --- Side Panels --- */
-        .side-panel { position: fixed; top: 0; right: -420px; width: 380px; height: 100%; background: var(--panel); box-shadow: -15px 0 50px rgba(0,0,0,0.9); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; padding: 25px; overflow-y: auto; border-left: 1px solid #333; }
+        .side-panel { position: fixed; top: 0; right: -420px; width: 380px; height: 100%; background: var(--panel); box-shadow: -15px 0 50px rgba(0,0,0,0.9); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; padding: 25px; overflow-y: auto; border-left: 1px solid #333; color: white !important; }
         .side-panel.open { right: 0; }
+        .side-panel h2 { color: white !important; margin: 0; }
         
-        .doc-content h3 { color: var(--accent); text-transform: uppercase; font-size: 0.9rem; margin-top: 25px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .doc-content p, .doc-content li { font-size: 0.85rem; line-height: 1.5; color: #ccc; }
+        /* Documentation Styling - Forced Visibility */
+        .doc-content h3 { color: var(--accent) !important; text-transform: uppercase; font-size: 0.75rem; margin-top: 25px; border-bottom: 1px solid #333; padding-bottom: 5px; letter-spacing: 1px; font-weight: 800; }
+        .doc-content p, .doc-content li { font-size: 0.85rem; line-height: 1.5; color: #ccc !important; margin-bottom: 10px; }
+        .doc-content strong { color: white !important; font-weight: 800; }
+        .doc-content code { background: #000; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: var(--accent) !important; }
 
-        /* --- Settings Layout Fixes --- */
+        /* --- Settings Layout --- */
         .section { margin-bottom: 20px; border-bottom: 1px solid #2a2a2a; padding-bottom: 15px; }
         .section-title { font-size: 0.65rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; margin-bottom: 15px; display: block; }
-        
         .config-row { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
         .config-field { display: flex; flex-direction: column; flex: 1; }
         .config-field label { font-size: 0.65rem; color: #777; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; }
         
         .alert-row { display: grid; grid-template-columns: 40px 1fr 60px 40px; align-items: center; gap: 10px; margin-bottom: 12px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
-        
+        .alert-row label { color: #aaa; font-size: 0.75rem; font-weight: bold; }
+
         input:not([type="checkbox"]):not([type="color"]), select { width: 100%; background: #000; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 0.9rem; }
         input[type="color"] { -webkit-appearance: none; border: none; width: 32px; height: 32px; padding: 0; background: none; cursor: pointer; border-radius: 4px; }
-        
         .btn-save { background: var(--accent); color: #000; border: none; padding: 15px; width: 100%; font-weight: 900; border-radius: 4px; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
 
         /* Switch */
@@ -94,9 +96,31 @@
     <div id="help-overlay" class="side-panel">
         <div style="display:flex; justify-content:space-between; align-items:center;"><h2>Documentation</h2><i class="fas fa-times icon-btn" onclick="togglePanel('help-overlay')"></i></div>
         <div class="doc-content">
-            <h3>Overview</h3><p>Track Command is a high-visibility dashboard designed for the paddock.</p>
-            <h3>Configuration</h3><p>Set your rotation slot (e.g., <code>:20</code>) and the app will automate your schedule.</p>
-            <h3>Persistence</h3><p>Settings are saved locally to your browser.</p>
+            <h3>Overview</h3>
+            <p>Track Command is a <strong>high-visibility digital dashboard</strong> designed for motorcycle racing and track days. It provides "at-a-glance" status updates so you can focus on wrenching while the clock does the work.</p>
+            
+            <h3>Schedule Setup</h3>
+            <p>The app builds a full-day schedule automatically. Simply set your <strong>1st Session Hour</strong> (e.g. 9:00 AM) and your <strong>Group Slot</strong> (e.g. <code>:20</code> if you are the second group out).</p>
+            
+            <h3>Alert States</h3>
+            <ul>
+                <li><strong>Meeting:</strong> A morning countdown to the mandatory riders briefing.</li>
+                <li><strong>Warmup:</strong> Lead time to start engines and check tire warmers.</li>
+                <li><strong>Gear Up:</strong> Final call to suit up and head to the pit wall.</li>
+                <li><strong>Stand Prep:</strong> A blinking alert that triggers near the end of a session so you can prep stands and warmers in the hot-pit.</li>
+            </ul>
+
+            <h3>Custom Branding</h3>
+            <p>Personalize the top-bar and labels in the <strong>Branding</strong> section. Control your Team Name, Racer Number, and the specific labels for up to two riders.</p>
+            
+            <h3>Split View</h3>
+            <p>Enable the <strong>Split Screen</strong> toggle to track two riders simultaneously. Each rider receives independent color-coded alerts based on their specific session slot.</p>
+            
+            <h3>Debug Mode</h3>
+            <p>Test your configurations by enabling the <strong>Time Override</strong>. This allows you to set a "fake" system time to verify alert transitions without waiting for the actual day to progress.</p>
+            
+            <h3>Persistence</h3>
+            <p>All configurations are stored in your browser's <code>LocalStorage</code>. Your schedule and themes will persist through page refreshes and restarts.</p>
         </div>
     </div>
 
@@ -106,7 +130,7 @@
         <div class="section">
             <span class="section-title">Team Branding</span>
             <div class="config-row">
-                <div class="config-field" style="flex: 2;"><label>Team / Rider Name</label><input type="text" id="brand-name-in" placeholder="e.g. ROWE"></div>
+                <div class="config-field" style="flex: 2;"><label>Team / Rider Name</label><input type="text" id="brand-name-in" placeholder="ROWE"></div>
                 <div class="config-field" style="flex: 1;"><label>Racer #</label><input type="text" id="brand-num-in" placeholder="#418"></div>
             </div>
             <div class="config-field"><label>Dashboard Menu Title</label><input type="text" id="menu-label-in" placeholder="Track Command"></div>
@@ -132,15 +156,15 @@
         <div class="section">
             <span class="section-title">Riders</span>
             <div class="config-row"><div class="config-field"><label>Rider 1 Name</label><input type="text" id="p1-label-in"></div><div class="config-field" style="flex:0.5"><label>Slot</label><select id="p1-slot-in"></select></div></div>
-            <div class="config-row"><label>Enable Split View</label><label class="switch"><input type="checkbox" id="s-enabled"><span class="slider"></span></label></div>
+            <div class="config-row"><label style="flex:1; font-size: 0.8rem; color:#777; font-weight:bold; text-transform:uppercase;">Enable Split View</label><label class="switch"><input type="checkbox" id="s-enabled"><span class="slider"></span></label></div>
             <div class="config-row"><div class="config-field"><label>Rider 2 Name</label><input type="text" id="p2-label-in"></div><div class="config-field" style="flex:0.5"><label>Slot</label><select id="p2-slot-in"></select></div></div>
         </div>
 
         <div class="section">
             <span class="section-title">Advanced</span>
-            <div class="config-row"><label>Override Time</label><label class="switch"><input type="checkbox" id="dbg-on"><span class="slider"></span></label></div>
-            <div class="config-row"><div class="config-field"><label>System Time Override</label><input type="time" id="dbg-time" step="1"></div></div>
-            <div class="config-row"><label>Accent Color</label><input type="color" id="clr-accent"></div>
+            <div class="config-row"><label style="flex:1; font-size: 0.8rem; color:#777; font-weight:bold; text-transform:uppercase;">Override Time</label><label class="switch"><input type="checkbox" id="dbg-on"><span class="slider"></span></label></div>
+            <div class="config-field"><label>System Time Override</label><input type="time" id="dbg-time" step="1"></div>
+            <div class="config-row" style="margin-top:10px;"><label style="flex:1; font-size: 0.8rem; color:#777; font-weight:bold; text-transform:uppercase;">Accent Color</label><input type="color" id="clr-accent"></div>
         </div>
 
         <button class="btn-save" onclick="save()">Apply All Changes</button>
@@ -179,12 +203,12 @@
                 },
                 colors: { accent: document.getElementById('clr-accent').value, warmup: document.getElementById('clr-warmup').value, gearup: document.getElementById('clr-gearup').value, ending: document.getElementById('clr-ending').value }
             };
-            localStorage.setItem('track_cmd_v20', JSON.stringify(data));
+            localStorage.setItem('track_cmd_v22', JSON.stringify(data));
             init(); togglePanel('settings-overlay');
         }
 
         function init() {
-            const cfg = JSON.parse(localStorage.getItem('track_cmd_v20')) || { brand: { name: "ROWE", num: "#418", menu: "Track Command" }, alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
+            const cfg = JSON.parse(localStorage.getItem('track_cmd_v22')) || { brand: { name: "ROWE", num: "#418", menu: "Track Command" }, alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
             
             document.getElementById('brand-name-in').value = cfg.brand?.name || "ROWE";
             document.getElementById('brand-num-in').value = cfg.brand?.num || "#418";
@@ -239,7 +263,7 @@
         }
 
         function tick() {
-            const cfg = JSON.parse(localStorage.getItem('track_cmd_v20')) || { alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
+            const cfg = JSON.parse(localStorage.getItem('track_cmd_v22')) || { alerts: { mtg: true, wu: true, wuMins: 10, gu: true, guMins: 5, sp: true, spMins: 3 } };
             const now = new Date(Date.now() + offset);
             processRider('pane-1', p1Sched, now, parseInt(cfg.rl)||20, cfg.cf==='12', cfg.p1l||"Rider 1", cfg.alerts);
             if (cfg.p2e) processRider('pane-2', p2Sched, now, parseInt(cfg.rl)||20, cfg.cf==='12', cfg.p2l||"Rider 2", cfg.alerts);
@@ -249,7 +273,7 @@
         function formatTime(ms) { const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000); return `${m}:${s.toString().padStart(2,'0')}`; }
 
         window.onload = () => {
-            updateSlots(); const saved = localStorage.getItem('track_cmd_v20');
+            updateSlots(); const saved = localStorage.getItem('track_cmd_v22');
             if(saved) {
                 const c = JSON.parse(saved);
                 document.getElementById('brand-name-in').value = c.brand?.name || ""; document.getElementById('brand-num-in').value = c.brand?.num || ""; document.getElementById('menu-label-in').value = c.brand?.menu || "";
