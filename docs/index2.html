@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Command v2.5</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --panel-bg: #1a1a1a;
+            --text-main: #ffffff;
+            --accent: #00e5ff;
+            --warmup: #ffeb3b;
+            --gearup: #ff5722;
+            --ending: #f44336;
+            --ready: #4caf50;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        header {
+            height: 60px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 2px solid #333;
+            justify-content: space-between;
+        }
+
+        .brand-box { display: flex; align-items: center; gap: 10px; }
+        #header-brand-name { font-weight: 800; font-size: 1.5rem; text-transform: uppercase; }
+        #header-brand-number { background: var(--accent); color: #000; padding: 2px 8px; font-weight: 900; border-radius: 4px; }
+        #top-title-text { opacity: 0.7; font-size: 0.9rem; margin-left: 20px; }
+        #sys-clock { font-family: monospace; font-size: 1.8rem; font-weight: bold; }
+        .controls { display: flex; gap: 15px; }
+        .icon-btn { cursor: pointer; background: #333; border: none; color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; }
+        .icon-btn:focus { outline: 3px solid var(--accent); background: #444; }
+
+        #main-viewport {
+            display: flex;
+            height: calc(100vh - 60px);
+            width: 100%;
+        }
+
+        .rider-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid #222;
+            transition: background 0.3s ease;
+            position: relative;
+            text-align: center;
+        }
+
+        .pane-hidden { display: none; }
+        .session-tag { position: absolute; top: 20px; left: 20px; font-size: 1.2rem; font-weight: bold; opacity: 0.6; }
+        .rider-label { font-size: 3rem; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; }
+        .countdown-timer { font-size: 12rem; font-family: monospace; line-height: 1; font-weight: bold; }
+        .status-label { font-size: 4rem; font-weight: 800; margin-top: 10px; padding: 0 20px; border-radius: 10px; }
+        .supp-text { font-size: 1.5rem; margin-top: 20px; opacity: 0.8; }
+
+        .state-sleep { background: #000; opacity: 0.3; }
+        .state-meeting { color: var(--accent); }
+        .state-ready { color: var(--ready); }
+        .state-warmup { color: var(--warmup); }
+        .state-gearup { color: var(--gearup); }
+        .state-ending { animation: blink 1s infinite; color: var(--ending); }
+        
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+        .debug-tag { color: #ff00ff; font-weight: bold; margin-right: 10px; display: none; }
+
+        .overlay {
+            position: fixed;
+            top: 0; right: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 100;
+            display: none;
+            padding: 20px;
+        }
+
+        .overlay-content {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 950px;
+            margin: 0 auto;
+            border: 2px solid #444;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .setting-group { margin-bottom: 8px; }
+        .setting-group label { display: block; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+        .setting-group input, .setting-group select {
+            width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 0.9rem;
+        }
+        .setting-group input:focus, .setting-group select:focus { outline: 3px solid var(--accent); }
+
+        .save-btn { background: var(--ready); color: white; border: none; padding: 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; font-size: 1.1rem; }
+        h2 { margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 5px; font-size: 1.4rem; }
+    </style>
+</head>
+<body onload="init()">
+
+    <header>
+        <div class="brand-box">
+            <span id="header-brand-name">TEAM</span>
+            <span id="header-brand-number">00</span>
+            <span id="top-title-text">TRACK COMMAND</span>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <span id="dbg-indicator" class="debug-tag">DEBUG MODE</span>
+            <div id="sys-clock">00:00:00</div>
+        </div>
+        <div class="controls">
+            <button class="icon-btn" onclick="togglePanel('help-overlay')">HELP</button>
+            <button class="icon-btn" onclick="togglePanel('settings-overlay')">SETTINGS</button>
+        </div>
+    </header>
+
+    <main id="main-viewport">
+        <div id="pane-1" class="rider-pane">
+            <div class="session-tag" id="p1-tag">SESS 0</div>
+            <div class="rider-label" id="p1-name-display">RIDER 1</div>
+            <div class="countdown-timer" id="p1-timer">--:--</div>
+            <div class="status-label" id="p1-status">STANDBY</div>
+            <div class="supp-text" id="p1-supp">Initializing...</div>
+        </div>
+        <div id="pane-2" class="rider-pane pane-hidden">
+            <div class="session-tag" id="p2-tag">SESS 0</div>
+            <div class="rider-label" id="p2-name-display">RIDER 2</div>
+            <div class="countdown-timer" id="p2-timer">--:--</div>
+            <div class="status-label" id="p2-status">STANDBY</div>
+            <div class="supp-text" id="p2-supp">Initializing...</div>
+        </div>
+    </main>
+
+    <div id="help-overlay" class="overlay" onclick="togglePanel('help-overlay')">
+        <div class="overlay-content">
+            <h2>System Help</h2>
+            <p>Designed for TV Remote Navigation. Use D-Pad to select fields.</p>
+            <ul style="line-height: 1.6; margin: 15px 20px;">
+                <li><b>Warmup:</b> Start getting your gear on.</li>
+                <li><b>Gear Up:</b> Final check, start bike, head to grid.</li>
+                <li><b>Get Stands:</b> Session ending soon, crew to pit wall.</li>
+            </ul>
+            <p style="color: var(--accent)">Click anywhere to close.</p>
+        </div>
+    </div>
+
+    <div id="settings-overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Configuration</h2>
+            <div class="settings-grid">
+                <div class="col">
+                    <div class="setting-group"><label>Team Name</label><input type="text" id="cfg-team-name"></div>
+                    <div class="setting-group"><label>Number</label><input type="text" id="cfg-team-num"></div>
+                    <div class="setting-group">
+                        <label>Rotation (Mins)</label>
+                        <select id="cfg-rot" onchange="updateSlots()">
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="setting-group"><label>Track Start (Hour)</label><input type="number" id="cfg-start-h"></div>
+                    <div class="setting-group"><label>Rider Meeting</label><input type="time" id="cfg-meet-t"></div>
+                    <div class="setting-group">
+                        <label>Lunch Break</label>
+                        <select id="cfg-lunch">
+                            <option value="0">None</option>
+                            <option value="12">12:00 PM</option>
+                            <option value="13">1:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="setting-group"><label>R1 Slot Offset</label><select id="cfg-p1-slot"></select></div>
+                    <div class="setting-group"><label>R2 Slot Offset</label><select id="cfg-p2-slot"></select></div>
+                    <div class="setting-group"><label><input type="checkbox" id="cfg-s-enabled"> Enable Split View</label></div>
+                </div>
+            </div>
+            <div class="settings-grid" style="margin-top:10px; border-top: 1px solid #444; padding-top: 10px;">
+                <div class="col"><div class="setting-group"><label>Warm / Gear / Stand (Mins)</label>
+                    <div style="display:flex; gap:5px;"><input type="number" id="cfg-pre-w"><input type="number" id="cfg-pre-g"><input type="number" id="cfg-pre-s"></div></div>
+                </div>
+                <div class="col"><div class="setting-group"><label>Debug Time</label><input type="time" id="cfg-dbg-time" step="1"></div></div>
+                <div class="col"><div class="setting-group"><label><input type="checkbox" id="cfg-dbg-on"> Enable Debug</label></div></div>
+            </div>
+            <button class="save-btn" onclick="save()">SAVE & REFRESH</button>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'track_cmd_v24';
+        let config = {};
+        let p1_schedule = [];
+        let p2_schedule = [];
+
+        const DEFAULTS = {
+            teamName: "Rider", teamNum: "01", title: "TRACK COMMAND",
+            startHour: 8, rot: 15, lunchHour: 12,
+            p1Slot: 45, p2Slot: 0, sEnabled: false,
+            meetTime: "08:15", preWarmup: 10, preGear: 5, preStand: 2,
+            dbgOn: false, dbgTime: "08:00:00"
+        };
+
+        function togglePanel(id) {
+            const el = document.getElementById(id);
+            el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+        }
+
+        function updateSlots() {
+            const rot = parseInt(document.getElementById('cfg-rot').value);
+            const p1S = document.getElementById('cfg-p1-slot');
+            const p2S = document.getElementById('cfg-p2-slot');
+            [p1S, p2S].forEach(s => {
+                const currentVal = s.value;
+                s.innerHTML = '';
+                for(let i=0; i < 60; i += rot) {
+                    let opt = document.createElement('option');
+                    opt.value = i; opt.text = `:${i.toString().padStart(2, '0')}`;
+                    s.appendChild(opt);
+                }
+                s.value = currentVal || 0;
+            });
+        }
+
+        function save() {
+            config = {
+                teamName: document.getElementById('cfg-team-name').value,
+                teamNum: document.getElementById('cfg-team-num').value,
+                rot: parseInt(document.getElementById('cfg-rot').value),
+                startHour: parseInt(document.getElementById('cfg-start-h').value),
+                lunchHour: parseInt(document.getElementById('cfg-lunch').value),
+                meetTime: document.getElementById('cfg-meet-t').value,
+                p1Slot: parseInt(document.getElementById('cfg-p1-slot').value),
+                p2Slot: parseInt(document.getElementById('cfg-p2-slot').value),
+                preWarmup: parseInt(document.getElementById('cfg-pre-w').value),
+                preGear: parseInt(document.getElementById('cfg-pre-g').value),
+                preStand: parseInt(document.getElementById('cfg-pre-s').value),
+                sEnabled: document.getElementById('cfg-s-enabled').checked,
+                dbgOn: document.getElementById('cfg-dbg-on').checked,
+                dbgTime: document.getElementById('cfg-dbg-time').value
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+            location.reload();
+        }
+
+        function init() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            config = saved ? JSON.parse(saved) : DEFAULTS;
+
+            document.getElementById('cfg-team-name').value = config.teamName;
+            document.getElementById('cfg-team-num').value = config.teamNum;
+            document.getElementById('cfg-rot').value = config.rot;
+            document.getElementById('cfg-start-h').value = config.startHour;
+            document.getElementById('cfg-lunch').value = config.lunchHour;
+            document.getElementById('cfg-meet-t').value = config.meetTime;
+            updateSlots();
+            document.getElementById('cfg-p1-slot').value = config.p1Slot;
+            document.getElementById('cfg-p2-slot').value = config.p2Slot;
+            document.getElementById('cfg-pre-w').value = config.preWarmup;
+            document.getElementById('cfg-pre-g').value = config.preGear;
+            document.getElementById('cfg-pre-s').value = config.preStand;
+            document.getElementById('cfg-s-enabled').checked = config.sEnabled;
+            document.getElementById('cfg-dbg-on').checked = config.dbgOn;
+            document.getElementById('cfg-dbg-time').value = config.dbgTime;
+
+            document.getElementById('header-brand-name').innerText = config.teamName;
+            document.getElementById('header-brand-number').innerText = config.teamNum;
+            if(config.sEnabled) document.getElementById('pane-2').classList.remove('pane-hidden');
+            if(config.dbgOn) document.getElementById('dbg-indicator').style.display = 'inline';
+
+            p1_schedule = generateForRider(config.p1Slot);
+            p2_schedule = generateForRider(config.p2Slot);
+            setInterval(tick, 1000);
+        }
+
+        function generateForRider(offset) {
+            let sched = [];
+            for (let h = config.startHour; h < 17; h++) {
+                if (config.lunchHour !== 0 && h === config.lunchHour) continue;
+                
+                let start = new Date();
+                start.setHours(h, offset, 0, 0);
+                let end = new Date(start.getTime() + (config.rot * 60000));
+                sched.push({ start, end, label: `SESS ${sched.length + 1}` });
+            }
+            return sched;
+        }
+
+        function formatTime(ms) {
+            const totalSecs = Math.max(0, Math.floor(ms / 1000));
+            const m = Math.floor(totalSecs / 60);
+            const s = totalSecs % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function processRider(riderNum, schedule) {
+            const now = getNow();
+            const pane = document.getElementById(`pane-${riderNum}`);
+            const [mH, mM] = config.meetTime.split(':');
+            const meetDate = new Date(); meetDate.setHours(mH, mM, 0, 0);
+            
+            if (now < meetDate) {
+                updatePane(pane, 'state-meeting', "MEETING", formatTime(meetDate - now), "Rider's Briefing", "EVENT");
+                return;
+            }
+
+            const current = schedule.find(s => now >= s.start && now < s.end);
+            const next = schedule.find(s => s.start > now);
+
+            if (current) {
+                const remaining = current.end - now;
+                let state = (remaining < (config.preStand * 60000)) ? 'state-ending' : 'state-ready';
+                let status = (remaining < (config.preStand * 60000)) ? 'GET STANDS' : 'ON TRACK';
+                updatePane(pane, state, status, formatTime(remaining), "Eyes Up / Focus", current.label);
+            } else if (next) {
+                const diffMins = (next.start - now) / 60000;
+                let state = 'state-ready', status = 'STANDBY';
+                if (diffMins <= config.preGear) { state = 'state-gearup'; status = 'GEAR UP'; }
+                else if (diffMins <= config.preWarmup) { state = 'state-warmup'; status = 'WARMUP'; }
+                updatePane(pane, state, status, formatTime(next.start - now), `Next @ ${next.start.getHours()}:${next.start.getMinutes().toString().padStart(2,'0')}`, next.label);
+            } else {
+                updatePane(pane, 'state-sleep', 'FINISHED', '--:--', 'Track Cold', 'OFF');
+            }
+        }
+
+        function updatePane(el, state, status, time, supp, tag) {
+            el.className = `rider-pane ${state}`;
+            el.querySelector('.status-label').innerText = status;
+            el.querySelector('.countdown-timer').innerText = time;
+            el.querySelector('.supp-text').innerText = supp;
+            el.querySelector('.session-tag').innerText = tag;
+        }
+
+        function getNow() {
+            if (!config.dbgOn) return new Date();
+            const [h, m, s] = config.dbgTime.split(':');
+            const d = new Date(); d.setHours(h, m, s || 0); return d;
+        }
+
+        function tick() {
+            document.getElementById('sys-clock').innerText = getNow().toLocaleTimeString([], { hour12: false });
+            processRider(1, p1_schedule);
+            if (config.sEnabled) processRider(2, p2_schedule);
+        }
+    </script>
+</body>
+</html>
