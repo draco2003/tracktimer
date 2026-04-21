@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Command v2.7</title>
+    <title>Track Command v2.8</title>
     <style>
         :root {
             --bg-color: #0a0a0a;
@@ -35,26 +35,29 @@
             padding: 0 20px;
             border-bottom: 2px solid #333;
             justify-content: space-between;
+            z-index: 10;
         }
 
         .brand-box { display: flex; align-items: center; gap: 10px; }
         #header-brand-name { font-weight: 800; font-size: 1.5rem; text-transform: uppercase; }
         #header-brand-number { background: var(--accent); color: #000; padding: 2px 8px; font-weight: 900; border-radius: 4px; }
-        #top-title-text { opacity: 0.7; font-size: 0.9rem; margin-left: 20px; }
         #sys-clock { font-family: monospace; font-size: 1.8rem; font-weight: bold; }
-        .controls { display: flex; gap: 15px; }
-        .icon-btn { cursor: pointer; background: #333; border: none; color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; }
+        
+        .controls { display: flex; gap: 10px; }
+        .icon-btn { cursor: pointer; background: #333; border: none; color: white; padding: 8px 15px; border-radius: 4px; font-size: 0.9rem; font-weight: bold; }
         .icon-btn:focus { outline: 3px solid var(--accent); background: #444; }
 
-        /* Main Viewport */
+        /* Main Viewport Optimization */
         #main-viewport {
             display: flex;
             height: calc(100vh - 60px);
             width: 100%;
+            overflow: hidden; /* Prevent any accidental scroll */
         }
 
         .rider-pane {
-            flex: 1;
+            flex: 1 1 0; /* Force equal sizing */
+            min-width: 0; /* Allow shrinking */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -63,14 +66,23 @@
             transition: background 0.3s ease;
             position: relative;
             text-align: center;
+            padding: 20px;
         }
 
         .pane-hidden { display: none; }
-        .session-tag { position: absolute; top: 20px; left: 20px; font-size: 1.2rem; font-weight: bold; opacity: 0.6; }
-        .rider-label { font-size: 3rem; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; }
-        .countdown-timer { font-size: 12rem; font-family: monospace; line-height: 1; font-weight: bold; }
-        .status-label { font-size: 4rem; font-weight: 800; margin-top: 10px; padding: 0 20px; border-radius: 10px; }
-        .supp-text { font-size: 1.5rem; margin-top: 20px; opacity: 0.8; }
+
+        /* Typography Scaling */
+        .session-tag { position: absolute; top: 20px; left: 20px; font-size: 1.5rem; font-weight: bold; opacity: 0.5; }
+        .rider-label { font-size: 4vw; font-weight: 900; text-transform: uppercase; margin-bottom: 0; line-height: 1; }
+        .countdown-timer { font-size: 15vw; font-family: monospace; line-height: 0.9; font-weight: bold; }
+        .status-label { font-size: 5vw; font-weight: 800; margin-top: 10px; line-height: 1; }
+        .supp-text { font-size: 2vw; margin-top: 15px; opacity: 0.8; }
+
+        /* Split Mode Scaling Adjustments */
+        #main-viewport.split-mode .rider-label { font-size: 3vw; }
+        #main-viewport.split-mode .countdown-timer { font-size: 10vw; }
+        #main-viewport.split-mode .status-label { font-size: 3.5vw; }
+        #main-viewport.split-mode .supp-text { font-size: 1.5vw; }
 
         /* States */
         .state-sleep { background: #000; opacity: 0.3; }
@@ -82,12 +94,12 @@
         
         .debug-tag { color: #ff00ff; font-weight: bold; margin-right: 10px; display: none; }
 
-        /* Overlays */
+        /* Settings Overlay */
         .overlay {
             position: fixed;
             top: 0; right: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.92);
             z-index: 100;
             display: none;
             padding: 20px;
@@ -95,28 +107,28 @@
 
         .overlay-content {
             background: var(--panel-bg);
-            padding: 20px;
+            padding: 25px;
             border-radius: 12px;
-            max-width: 950px;
+            max-width: 1000px;
             margin: 0 auto;
             border: 2px solid #444;
         }
 
         .settings-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
         }
 
-        .setting-group { margin-bottom: 8px; }
-        .setting-group label { display: block; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+        .setting-group { margin-bottom: 12px; }
+        .setting-group label { display: block; font-size: 0.8rem; margin-bottom: 5px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
         .setting-group input, .setting-group select {
-            width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 0.9rem;
+            width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 1rem;
         }
-        .setting-group input:focus, .setting-group select:focus { outline: 3px solid var(--accent); }
+        .setting-group input:focus, .setting-group select:focus { outline: 3px solid var(--accent); border-color: transparent; }
 
-        .save-btn { background: var(--ready); color: white; border: none; padding: 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; font-size: 1.1rem; }
-        h2 { margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 5px; font-size: 1.4rem; }
+        .save-btn { background: var(--ready); color: white; border: none; padding: 18px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 1.2rem; }
+        h2 { margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px; }
     </style>
 </head>
 <body onload="init()">
@@ -125,15 +137,15 @@
         <div class="brand-box">
             <span id="header-brand-name">TEAM</span>
             <span id="header-brand-number">00</span>
-            <span id="top-title-text">TRACK COMMAND</span>
+            <span style="opacity: 0.4; font-size: 0.8rem; margin-left: 10px;">TRACK COMMAND v2.8</span>
         </div>
         <div style="display: flex; align-items: center;">
             <span id="dbg-indicator" class="debug-tag">DEBUG MODE</span>
             <div id="sys-clock">00:00:00</div>
         </div>
         <div class="controls">
-            <button class="icon-btn" onclick="togglePanel('help-overlay')">HELP</button>
             <button class="icon-btn" onclick="togglePanel('settings-overlay')">SETTINGS</button>
+            <button class="icon-btn" onclick="togglePanel('help-overlay')">HELP</button>
         </div>
     </header>
 
@@ -184,17 +196,17 @@
                 <div class="col">
                     <div class="setting-group"><label>R1 Slot Offset</label><select id="cfg-p1-slot"></select></div>
                     <div class="setting-group"><label>R2 Slot Offset</label><select id="cfg-p2-slot"></select></div>
-                    <div class="setting-group"><label><input type="checkbox" id="cfg-s-enabled"> Enable Split View</label></div>
+                    <div class="setting-group" style="padding-top:10px;"><label><input type="checkbox" id="cfg-s-enabled"> Enable Split View</label></div>
                 </div>
             </div>
-            <div class="settings-grid" style="margin-top:10px; border-top: 1px solid #444; padding-top: 10px;">
+            <div class="settings-grid" style="margin-top:10px; border-top: 1px solid #444; padding-top: 15px;">
                 <div class="col"><div class="setting-group"><label>Warm / Gear / Stand (Mins)</label>
-                    <div style="display:flex; gap:5px;"><input type="number" id="cfg-pre-w"><input type="number" id="cfg-pre-g"><input type="number" id="cfg-pre-s"></div></div>
+                    <div style="display:flex; gap:8px;"><input type="number" id="cfg-pre-w"><input type="number" id="cfg-pre-g"><input type="number" id="cfg-pre-s"></div></div>
                 </div>
                 <div class="col"><div class="setting-group"><label>Debug Time</label><input type="time" id="cfg-dbg-time" step="1"></div></div>
-                <div class="col"><div class="setting-group"><label><input type="checkbox" id="cfg-dbg-on"> Enable Debug</label></div></div>
+                <div class="col"><div class="setting-group" style="padding-top:20px;"><label><input type="checkbox" id="cfg-dbg-on"> Enable Debug</label></div></div>
             </div>
-            <button class="save-btn" onclick="save()">SAVE & REFRESH</button>
+            <button class="save-btn" onclick="save()">SAVE & APPLY</button>
         </div>
     </div>
 
@@ -202,12 +214,13 @@
         <div class="overlay-content">
             <h2>System Help</h2>
             <p>Designed for TV Remote Navigation. Use D-Pad to select fields.</p>
-            <ul style="line-height: 1.6; margin: 15px 20px;">
-                <li><b>Warmup:</b> Start getting your gear on.</li>
-                <li><b>Gear Up:</b> Final check, start bike, head to grid.</li>
-                <li><b>Returning Rider:</b> Session ending soon, crew to pit wall.</li>
-                <li><b>Lunch Break:</b> Track is cold. Timer shows time until resumption.</li>
+            <ul style="line-height: 1.8; margin: 20px 30px;">
+                <li><b>WARMUP:</b> Start prep. (10m default)</li>
+                <li><b>GEAR UP:</b> Helmet/Gloves on. Start bike. (5m default)</li>
+                <li><b>RETURNING RIDER:</b> Session ending soon. Crew to wall. (2m default)</li>
+                <li><b>LUNCH BREAK:</b> Cold track. Timer shows time until your next session.</li>
             </ul>
+            <p style="color: var(--accent); margin-top: 10px;">Press 'Back' on remote or click to close.</p>
         </div>
     </div>
 
@@ -216,14 +229,6 @@
         let config = {};
         let p1_schedule = [];
         let p2_schedule = [];
-
-        const DEFAULTS = {
-            teamName: "Rider", teamNum: "01", title: "TRACK COMMAND",
-            startHour: 8, rot: 15, lunchHour: 12,
-            p1Slot: 45, p2Slot: 0, sEnabled: false,
-            meetTime: "08:15", preWarmup: 10, preGear: 5, preStand: 2,
-            dbgOn: false, dbgTime: "08:00:00"
-        };
 
         function togglePanel(id) {
             const el = document.getElementById(id);
@@ -269,8 +274,13 @@
 
         function init() {
             const saved = localStorage.getItem(STORAGE_KEY);
-            config = saved ? JSON.parse(saved) : DEFAULTS;
+            config = saved ? JSON.parse(saved) : {
+                teamName: "Dan Rowe", teamNum: "45", rot: 15, startHour: 8, lunchHour: 12,
+                meetTime: "08:15", p1Slot: 45, p2Slot: 0, sEnabled: false,
+                preWarmup: 10, preGear: 5, preStand: 2, dbgOn: false, dbgTime: "08:00:00"
+            };
 
+            // UI Population
             document.getElementById('cfg-team-name').value = config.teamName;
             document.getElementById('cfg-team-num').value = config.teamNum;
             document.getElementById('cfg-rot').value = config.rot;
@@ -289,7 +299,12 @@
 
             document.getElementById('header-brand-name').innerText = config.teamName;
             document.getElementById('header-brand-number').innerText = config.teamNum;
-            if(config.sEnabled) document.getElementById('pane-2').classList.remove('pane-hidden');
+            
+            const viewport = document.getElementById('main-viewport');
+            if(config.sEnabled) {
+                document.getElementById('pane-2').classList.remove('pane-hidden');
+                viewport.classList.add('split-mode');
+            }
             if(config.dbgOn) document.getElementById('dbg-indicator').style.display = 'inline';
 
             p1_schedule = generateForRider(config.p1Slot);
@@ -301,7 +316,6 @@
             let sched = [];
             for (let h = config.startHour; h < 17; h++) {
                 if (config.lunchHour !== 0 && h === config.lunchHour) continue;
-                
                 let start = new Date();
                 start.setHours(h, offset, 0, 0);
                 let end = new Date(start.getTime() + (config.rot * 60000));
@@ -323,13 +337,11 @@
             const [mH, mM] = config.meetTime.split(':');
             const meetDate = new Date(); meetDate.setHours(mH, mM, 0, 0);
             
-            // 1. Meeting Check
             if (now < meetDate) {
                 updatePane(pane, 'state-meeting', "MEETING", formatTime(meetDate - now), "Rider's Briefing", "EVENT");
                 return;
             }
 
-            // 2. Lunch Check Override
             if (config.lunchHour !== 0 && now.getHours() === config.lunchHour) {
                 const nextSession = schedule.find(s => s.start > now);
                 const countdown = nextSession ? formatTime(nextSession.start - now) : "--:--";
@@ -366,7 +378,7 @@
 
         function getNow() {
             if (!config.dbgOn) return new Date();
-            const [h, m, s] = config.dbgTime.split(':');
+            const [h, m, s] = document.getElementById('cfg-dbg-time').value.split(':');
             const d = new Date(); d.setHours(h, m, s || 0); return d;
         }
 
