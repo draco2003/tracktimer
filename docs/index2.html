@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Command v2.5</title>
+    <title>Track Command v2.7</title>
     <style>
         :root {
             --bg-color: #0a0a0a;
@@ -26,6 +26,7 @@
             width: 100vw;
         }
 
+        /* Top Bar */
         header {
             height: 60px;
             background: #000;
@@ -45,6 +46,7 @@
         .icon-btn { cursor: pointer; background: #333; border: none; color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; }
         .icon-btn:focus { outline: 3px solid var(--accent); background: #444; }
 
+        /* Main Viewport */
         #main-viewport {
             display: flex;
             height: calc(100vh - 60px);
@@ -70,16 +72,17 @@
         .status-label { font-size: 4rem; font-weight: 800; margin-top: 10px; padding: 0 20px; border-radius: 10px; }
         .supp-text { font-size: 1.5rem; margin-top: 20px; opacity: 0.8; }
 
+        /* States */
         .state-sleep { background: #000; opacity: 0.3; }
         .state-meeting { color: var(--accent); }
         .state-ready { color: var(--ready); }
         .state-warmup { color: var(--warmup); }
         .state-gearup { color: var(--gearup); }
-        .state-ending { animation: blink 1s infinite; color: var(--ending); }
+        .state-ending { color: var(--ending); }
         
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
         .debug-tag { color: #ff00ff; font-weight: bold; margin-right: 10px; display: none; }
 
+        /* Overlays */
         .overlay {
             position: fixed;
             top: 0; right: 0;
@@ -151,19 +154,6 @@
         </div>
     </main>
 
-    <div id="help-overlay" class="overlay" onclick="togglePanel('help-overlay')">
-        <div class="overlay-content">
-            <h2>System Help</h2>
-            <p>Designed for TV Remote Navigation. Use D-Pad to select fields.</p>
-            <ul style="line-height: 1.6; margin: 15px 20px;">
-                <li><b>Warmup:</b> Start getting your gear on.</li>
-                <li><b>Gear Up:</b> Final check, start bike, head to grid.</li>
-                <li><b>Get Stands:</b> Session ending soon, crew to pit wall.</li>
-            </ul>
-            <p style="color: var(--accent)">Click anywhere to close.</p>
-        </div>
-    </div>
-
     <div id="settings-overlay" class="overlay">
         <div class="overlay-content">
             <h2>Configuration</h2>
@@ -205,6 +195,19 @@
                 <div class="col"><div class="setting-group"><label><input type="checkbox" id="cfg-dbg-on"> Enable Debug</label></div></div>
             </div>
             <button class="save-btn" onclick="save()">SAVE & REFRESH</button>
+        </div>
+    </div>
+
+    <div id="help-overlay" class="overlay" onclick="togglePanel('help-overlay')">
+        <div class="overlay-content">
+            <h2>System Help</h2>
+            <p>Designed for TV Remote Navigation. Use D-Pad to select fields.</p>
+            <ul style="line-height: 1.6; margin: 15px 20px;">
+                <li><b>Warmup:</b> Start getting your gear on.</li>
+                <li><b>Gear Up:</b> Final check, start bike, head to grid.</li>
+                <li><b>Returning Rider:</b> Session ending soon, crew to pit wall.</li>
+                <li><b>Lunch Break:</b> Track is cold. Timer shows time until resumption.</li>
+            </ul>
         </div>
     </div>
 
@@ -320,8 +323,17 @@
             const [mH, mM] = config.meetTime.split(':');
             const meetDate = new Date(); meetDate.setHours(mH, mM, 0, 0);
             
+            // 1. Meeting Check
             if (now < meetDate) {
                 updatePane(pane, 'state-meeting', "MEETING", formatTime(meetDate - now), "Rider's Briefing", "EVENT");
+                return;
+            }
+
+            // 2. Lunch Check Override
+            if (config.lunchHour !== 0 && now.getHours() === config.lunchHour) {
+                const nextSession = schedule.find(s => s.start > now);
+                const countdown = nextSession ? formatTime(nextSession.start - now) : "--:--";
+                updatePane(pane, 'state-ready', "LUNCH BREAK", countdown, "Resuming Soon", "LUNCH");
                 return;
             }
 
@@ -331,7 +343,7 @@
             if (current) {
                 const remaining = current.end - now;
                 let state = (remaining < (config.preStand * 60000)) ? 'state-ending' : 'state-ready';
-                let status = (remaining < (config.preStand * 60000)) ? 'GET STANDS' : 'ON TRACK';
+                let status = (remaining < (config.preStand * 60000)) ? 'RETURNING RIDER' : 'ON TRACK';
                 updatePane(pane, state, status, formatTime(remaining), "Eyes Up / Focus", current.label);
             } else if (next) {
                 const diffMins = (next.start - now) / 60000;
