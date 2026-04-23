@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Command v3.0</title>
+    <title>Track Command v3.1</title>
     <style>
         :root {
             --bg-color: #0a0a0a;
@@ -89,6 +89,9 @@
         
         .debug-tag { color: #ff00ff; font-weight: bold; margin-right: 10px; display: none; }
 
+        /* Prevent visibility of the awake-video hack */
+        #awake-video { position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
+
         .overlay {
             position: fixed;
             top: 0; right: 0;
@@ -127,11 +130,15 @@
 </head>
 <body onload="init()">
 
+    <video id="awake-video" muted loop playsinline autoplay>
+        <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAA5tZGF0AAAAAAAAAAIAbWF2Yy9tcDRhAAAABm1vb3YAAABsbXZoZAAAAADbe0v923tL/QAAZAAAAAAQAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAGWlvZHMAAAAAEAAfQYCAgP/EAAAABHRyYWsAAABcdGtoZAAAAADbe0v923tL/QAAAAEAAAAAAABkAAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAABttZGlhAAAAIG1kaGQAAAAA23tL/dt7S/0AAGQAAAAAABVshAAAAC1oZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAA=" type="video/mp4">
+    </video>
+
     <header>
         <div class="brand-box">
             <span id="header-brand-name">TEAM</span>
             <span id="header-brand-number">00</span>
-            <span style="opacity: 0.4; font-size: 0.8rem; margin-left: 10px;">TRACK COMMAND v3.0</span>
+            <span style="opacity: 0.4; font-size: 0.8rem; margin-left: 10px;">TRACK COMMAND v3.1</span>
         </div>
         <div style="display: flex; align-items: center;">
             <span id="dbg-indicator" class="debug-tag">DEBUG MODE</span>
@@ -284,7 +291,6 @@
             const saved = localStorage.getItem(STORAGE_KEY);
             config = saved ? JSON.parse(saved) : DEFAULTS;
 
-            // Enforce name defaults if empty strings were saved
             if (!config.p1Name) config.p1Name = "Rider 1";
             if (!config.p2Name) config.p2Name = "Rider 2";
 
@@ -319,6 +325,10 @@
                 viewport.classList.add('split-mode');
             }
             if(config.dbgOn) document.getElementById('dbg-indicator').style.display = 'inline';
+
+            // Awake Hack Trigger: Attempt to play hidden video
+            const v = document.getElementById('awake-video');
+            if (v) v.play().catch(e => console.log("Autoplay blocked, waiting for interaction."));
 
             p1_schedule = generateForRider(config.p1Slot);
             p2_schedule = generateForRider(config.p2Slot);
