@@ -3,341 +3,500 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Command v3.4 - Timing Fix</title>
+    <title>Track Day Command</title>
     <style>
+        /* CSS Variables for TV-friendly high contrast and easy state management */
         :root {
-            --bg-color: #0a0a0a;
-            --panel-bg: #1a1a1a;
-            --text-main: #ffffff;
-            --accent: #00e5ff;
-            --warmup: #ffeb3b;
-            --gearup: #ff5722;
-            --ending: #f44336;
-            --ready: #4caf50;
+            --bg-dark: #0f172a;
+            --text-light: #f8fafc;
+            --color-waiting: #334155;
+            --color-warmup: #d97706; /* Orange */
+            --color-gearup: #dc2626; /* Red */
+            --color-hot: #16a34a;    /* Green */
+            --color-lunch: #2563eb;  /* Blue */
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            background: var(--bg-color); 
-            color: var(--text-main);
+        /* Prevent scrolling on TV, ensure full screen */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
-            height: 100vh; width: 100vw;
-        }
-
-        header {
-            height: 60px;
-            background: #000;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: system-ui, -apple-system, sans-serif;
             display: flex;
+            flex-direction: column;
+        }
+
+        /* Header: Global Clock & Status */
+        header {
+            text-align: center;
+            padding: 1vh 0;
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: 2px solid #334155;
+        }
+        #global-clock {
+            font-size: 8vh;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            margin: 0;
+            line-height: 1;
+        }
+        #global-status {
+            font-size: 3vh;
+            color: #94a3b8;
+            margin: 0.5vh 0 0 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Main Grid dynamically adjusts based on active riders */
+        #timer-grid {
+            flex: 1;
+            display: grid;
+            gap: 2vw;
+            padding: 2vw;
+            grid-template-columns: 1fr 1fr; 
+        }
+
+        .rider-card {
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            padding: 0 20px;
-            border-bottom: 2px solid #333;
-            justify-content: space-between;
-            z-index: 10;
+            text-align: center;
+            padding: 2vh;
+            transition: background-color 0.5s ease;
+            background-color: var(--color-waiting);
+            border: 4px solid transparent;
         }
 
-        .brand-box { display: flex; align-items: center; gap: 10px; }
-        #header-brand-name { font-weight: 800; font-size: 1.5rem; text-transform: uppercase; }
-        #header-brand-number { background: var(--accent); color: #000; padding: 2px 8px; font-weight: 900; border-radius: 4px; }
-        #sys-clock { font-family: monospace; font-size: 1.8rem; font-weight: bold; }
-        
-        .controls { display: flex; gap: 10px; }
-        .icon-btn { cursor: pointer; background: #333; border: none; color: white; padding: 8px 15px; border-radius: 4px; font-size: 0.9rem; font-weight: bold; }
-        .icon-btn:focus { outline: 3px solid var(--accent); background: #444; }
-
-        /* Grid Engine */
-        #main-viewport { display: grid; height: calc(100vh - 60px); width: 100vw; overflow: hidden; }
-        #main-viewport.layout-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-        #main-viewport.layout-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-        #main-viewport.layout-3 .group-pane:first-child { grid-column: span 2; }
-        #main-viewport.layout-2 { grid-template-columns: 1fr 1fr; }
-        #main-viewport.layout-1 { grid-template-columns: 1fr; }
-
-        .group-pane {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border: 1px solid #222; position: relative; text-align: center; padding: 10px;
+        /* Default Font Sizes (Baseline) */
+        .rider-name { font-weight: bold; margin-bottom: 1vh; }
+        .rider-group { opacity: 0.8; margin-bottom: 2vh; }
+        .session-status { text-transform: uppercase; font-weight: bold; }
+        .countdown { 
+            font-weight: 900; 
+            font-variant-numeric: tabular-nums;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
-        .session-tag { position: absolute; top: 15px; left: 15px; font-weight: bold; opacity: 0.4; font-size: 1.2rem; }
-        .group-label { font-weight: 900; text-transform: uppercase; line-height: 1; }
-        .countdown-timer { font-family: monospace; line-height: 0.8; font-weight: bold; }
-        .status-label { font-weight: 800; margin-top: 10px; }
-
-        /* Sizing for Grid */
-        .layout-4 .group-label, .layout-3 .group-label { font-size: 3vw; }
-        .layout-4 .countdown-timer, .layout-3 .countdown-timer { font-size: 8vw; }
-        .layout-3 .group-pane:first-child .group-label { font-size: 4vw; }
-        .layout-3 .group-pane:first-child .countdown-timer { font-size: 12vw; }
-        .layout-2 .group-label { font-size: 5vw; }
-        .layout-2 .countdown-timer { font-size: 12vw; }
-        .layout-1 .group-label { font-size: 8vw; }
-        .layout-1 .countdown-timer { font-size: 18vw; }
-
-        .state-sleep { background: #000; opacity: 0.3; }
-        .state-meeting { color: var(--accent); }
-        .state-ready { color: var(--ready); }
-        .state-warmup { color: var(--warmup); }
-        .state-gearup { color: var(--gearup); }
-        .state-ending { color: var(--ending); }
+        /* --- Dynamic Scaling based on Grid Layout --- */
         
-        #awake-video { position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
+        /* 1 Rider Active (Massive) */
+        #timer-grid.grid-1 .rider-name { font-size: 8vh; }
+        #timer-grid.grid-1 .rider-group { font-size: 5vh; margin-bottom: 4vh; }
+        #timer-grid.grid-1 .session-status { font-size: 6vh; }
+        #timer-grid.grid-1 .countdown { font-size: 28vh; }
 
-        /* Settings Optimization */
-        .overlay { position: fixed; top: 0; right: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; display: none; padding: 15px; }
-        .overlay-content { background: var(--panel-bg); padding: 20px; border-radius: 12px; max-width: 1200px; margin: 0 auto; border: 2px solid #444; }
-        .settings-grid { display: grid; grid-template-columns: 280px 1fr 1fr; gap: 20px; }
-        .setting-group { margin-bottom: 10px; }
-        .setting-group label { display: block; font-size: 0.7rem; margin-bottom: 3px; color: #aaa; text-transform: uppercase; }
-        .setting-group input, .setting-group select { width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 0.9rem; }
-        .setting-group input:focus { outline: 2px solid var(--accent); }
-        .group-config-row { display: grid; grid-template-columns: 30px 1fr 80px; gap: 10px; align-items: center; margin-bottom: 8px; background: rgba(255,255,255,0.03); padding: 5px; border-radius: 4px; }
-        .save-btn { background: var(--ready); color: white; border: none; padding: 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1.1rem; margin-top: 10px;}
+        /* 2 Riders Active (Side by Side) */
+        #timer-grid.grid-2 .rider-name { font-size: 6vh; }
+        #timer-grid.grid-2 .rider-group { font-size: 4vh; margin-bottom: 3vh; }
+        #timer-grid.grid-2 .session-status { font-size: 4.5vh; }
+        #timer-grid.grid-2 .countdown { font-size: 16vh; }
+
+        /* 3 or 4 Riders Active (2x2 Grid) */
+        #timer-grid.grid-4 .rider-name { font-size: 4vh; margin-bottom: 0.5vh; }
+        #timer-grid.grid-4 .rider-group { font-size: 2.5vh; margin-bottom: 1vh;}
+        #timer-grid.grid-4 .session-status { font-size: 3vh; }
+        #timer-grid.grid-4 .countdown { font-size: 10vh; }
+
+
+        /* State Classes applied by JS */
+        .state-waiting { background-color: var(--color-waiting); }
+        .state-warmup { background-color: var(--color-warmup); }
+        .state-gearup { background-color: var(--color-gearup); animation: pulse 2s infinite; }
+        .state-hot { background-color: var(--color-hot); }
+        .state-global { background-color: var(--color-lunch); }
+        .state-done { background-color: #020617; color: #475569; border: 2px solid #1e293b; }
+
+        @keyframes pulse {
+            0% { border-color: transparent; box-shadow: 0 0 0 rgba(220, 38, 38, 0); }
+            50% { border-color: #fca5a5; box-shadow: 0 0 20px rgba(220, 38, 38, 0.8); }
+            100% { border-color: transparent; box-shadow: 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
+        /* Settings Modal overlay */
+        #settings-modal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 1000;
+            padding: 5vh 5vw;
+            overflow-y: auto;
+        }
+        #settings-modal.active { display: block; }
+        
+        /* Fire Stick Friendly Forms */
+        .form-group { margin-bottom: 2vh; }
+        label { display: inline-block; width: 300px; font-size: 3vh; }
+        input, select { 
+            font-size: 3vh; 
+            padding: 1vh; 
+            background: #1e293b; 
+            color: white; 
+            border: 2px solid #475569;
+            border-radius: 8px;
+        }
+        /* Highlight on focus for D-pad navigation */
+        input:focus, select:focus, button:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 10px #38bdf8;
+        }
+        button {
+            font-size: 3vh; padding: 2vh 4vw; margin-top: 4vh; margin-right: 2vw;
+            background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer;
+        }
+
+        #btn-settings {
+            position: absolute; top: 1vh; right: 1vw; opacity: 0.5;
+            font-size: 2vh; padding: 1vh 2vw; background: transparent; border: 1px solid white;
+        }
+        #btn-settings:focus { opacity: 1; }
     </style>
 </head>
-<body onload="init()">
+<body>
 
-    <video id="awake-video" muted loop playsinline autoplay>
-        <source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAA5tZGF0AAAAAAAAAAIAbWF2Yy9tcDRhAAAABm1vb3YAAABsbXZoZAAAAADbe0v923tL/QAAZAAAAAAQAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAGWlvZHMAAAAAEAAfQYCAgP/EAAAABHRyYWsAAABcdGtoZAAAAADbe0v923tL/QAAAAEAAAAAAABkAAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAABttZGlhAAAAIG1kaGQAAAAA23tL/dt7S/0AAGQAAAAAABVshAAAAC1oZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAAAABxoZGVyAAAAAAA=" type="video/mp4">
-    </video>
+    <button id="btn-settings" tabindex="1">⚙️ Config</button>
 
     <header>
-        <div class="brand-box">
-            <span id="header-brand-name">DAN ROWE</span>
-            <span id="header-brand-number">45</span>
-        </div>
-        <div id="sys-clock">00:00:00</div>
-        <div class="controls">
-            <button class="icon-btn" onclick="togglePanel('settings-overlay')">SETTINGS</button>
-        </div>
+        <div id="global-clock">00:00:00</div>
+        <div id="global-status">Loading Schedule...</div>
     </header>
 
-    <main id="main-viewport"></main>
+    <main id="timer-grid">
+        </main>
 
-    <div id="settings-overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Track Timing Configuration</h2>
-            <div class="settings-grid">
-                <div class="col">
-                    <div class="setting-group"><label>Track Start (Hot Hour)</label><input type="number" id="cfg-start-h" placeholder="e.g. 9"></div>
-                    <div class="setting-group"><label>Group A Offset (Min)</label><input type="number" id="cfg-start-m" placeholder="e.g. 0"></div>
-                    <div class="setting-group"><label>Rider Meeting Time</label><input type="time" id="cfg-meet-t"></div>
-                    <div class="setting-group">
-                        <label>Rotation Length</label>
-                        <select id="cfg-rot" onchange="renderGroupSettings()">
-                            <option value="15">15 Minutes</option>
-                            <option value="20">20 Minutes</option>
-                        </select>
-                    </div>
-                    <div class="setting-group">
-                        <label>Lunch Break</label>
-                        <select id="cfg-lunch">
-                            <option value="0">None</option>
-                            <option value="12">12:00 PM</option>
-                            <option value="13">1:00 PM</option>
-                        </select>
-                    </div>
+    <div id="settings-modal">
+        <h2>Configuration</h2>
+        <div style="display: flex; gap: 5vw;">
+            <div>
+                <h3>Schedule</h3>
+                <div class="form-group"><label>Riders Meeting:</label><input type="time" id="cfg-meeting" tabindex="2"></div>
+                <div class="form-group"><label>Track Hot (Start):</label><input type="time" id="cfg-start" tabindex="3"></div>
+                <div class="form-group"><label>Lunch Start:</label><input type="time" id="cfg-lunch-start" tabindex="4"></div>
+                <div class="form-group"><label>Lunch End:</label><input type="time" id="cfg-lunch-end" tabindex="5"></div>
+                <div class="form-group">
+                    <label>Format:</label>
+                    <select id="cfg-format" tabindex="6">
+                        <option value="15x4">15 Min / 4 Groups</option>
+                        <option value="20x3">20 Min / 3 Groups</option>
+                    </select>
                 </div>
-                <div class="col" style="grid-column: span 2;">
-                    <div id="group-config-container"></div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; border-top: 1px solid #444; padding-top:10px;">
-                        <div class="setting-group"><label>Lead Times (W/G/S)</label>
-                            <div style="display:flex; gap:5px;"><input type="number" id="cfg-pre-w"><input type="number" id="cfg-pre-g"><input type="number" id="cfg-pre-s"></div>
-                        </div>
-                        <div class="setting-group"><label>Debug Override</label>
-                            <div style="display:flex; gap:5px;"><input type="checkbox" id="cfg-dbg-on"><input type="time" id="cfg-dbg-time" step="1"></div>
-                        </div>
-                    </div>
+                <div class="form-group"><label>Total Sessions per group:</label><input type="number" id="cfg-sessions" min="1" max="10" tabindex="7"></div>
+            </div>
+            
+            <div>
+                <h3>Alerts & Riders</h3>
+                <div class="form-group"><label>Warmup Alert (min):</label><input type="number" id="cfg-warmup" tabindex="8"></div>
+                <div class="form-group"><label>Gear Up Alert (min):</label><input type="number" id="cfg-gearup" tabindex="9"></div>
+                <hr>
+                <div id="rider-configs"></div>
+                <hr>
+                <div class="form-group">
+                    <label>Debug Mode:</label><input type="checkbox" id="cfg-debug-en" tabindex="20">
+                </div>
+                <div class="form-group">
+                    <label>Debug Start Time:</label><input type="time" id="cfg-debug-time" tabindex="21">
                 </div>
             </div>
-            <button class="save-btn" onclick="save()">SAVE & APPLY</button>
         </div>
+        <button id="btn-save" tabindex="22">Save & Generate</button>
+        <button id="btn-cancel" tabindex="23">Cancel</button>
     </div>
 
     <script>
-        const STORAGE_KEY = 'track_cmd_v34';
-        let config = {};
-        let groupSchedules = {};
+        // --- 1. Default Configuration & Storage ---
+        const DEFAULT_CONFIG = {
+            schedule: { meeting: "08:00", start: "09:00", format: "15x4", lunchStart: "12:00", lunchEnd: "13:00", sessions: 7 },
+            alerts: { warmup: 10, gearup: 5 },
+            riders: [
+                { active: true, name: "Rider 1", group: 1 },
+                { active: true, name: "Rider 2", group: 2 },
+                { active: false, name: "Rider 3", group: 3 },
+                { active: false, name: "Rider 4", group: 4 }
+            ],
+            debug: { enabled: false, time: "07:55" }
+        };
 
-        function togglePanel(id) {
-            const el = document.getElementById(id);
-            el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+        let config = JSON.parse(localStorage.getItem('trackDayConfig')) || DEFAULT_CONFIG;
+        let masterSchedule = [];
+        let tickInterval;
+        let debugSecondsOffset = 0;
+
+        // --- 2. Time Math Utilities ---
+        function timeToSeconds(timeStr) {
+            if (!timeStr) return 0;
+            let parts = timeStr.split(':');
+            let h = parseInt(parts[0]) || 0;
+            let m = parseInt(parts[1]) || 0;
+            let s = parseInt(parts[2]) || 0;
+            return (h * 3600) + (m * 60) + s;
         }
 
-        function renderGroupSettings() {
-            const rot = parseInt(document.getElementById('cfg-rot').value);
-            const container = document.getElementById('group-config-container');
-            const count = (rot === 15) ? 4 : 3;
-            const startM = parseInt(document.getElementById('cfg-start-m').value) || 0;
-            container.innerHTML = '';
-            for (let i = 0; i < count; i++) {
-                const offset = (startM + (i * rot)) % 60;
-                const saved = config.groups ? config.groups[i] : null;
-                container.insertAdjacentHTML('beforeend', `
-                    <div class="group-config-row">
-                        <input type="checkbox" class="grp-enable" ${saved?.enabled !== false ? 'checked' : ''} data-idx="${i}">
-                        <input type="text" class="grp-label" value="${saved?.label || 'Group ' + String.fromCharCode(65+i)}" data-idx="${i}">
-                        <div style="font-size: 0.8rem; color: #888;">Starts :${offset.toString().padStart(2, '0')}</div>
-                    </div>
-                `);
+        function formatCountdown(seconds) {
+            if (seconds < 0) return "00:00";
+            let h = Math.floor(seconds / 3600);
+            let m = Math.floor((seconds % 3600) / 60);
+            let s = seconds % 60;
+            if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function getCurrentTimeSeconds() {
+            if (config.debug.enabled) {
+                return timeToSeconds(config.debug.time) + debugSecondsOffset;
             }
+            let d = new Date();
+            return (d.getHours() * 3600) + (d.getMinutes() * 60) + d.getSeconds();
         }
 
-        function save() {
-            const groupInputs = document.querySelectorAll('.group-config-row');
-            let groups = [];
-            groupInputs.forEach(row => {
-                groups.push({ enabled: row.querySelector('.grp-enable').checked, label: row.querySelector('.grp-label').value });
-            });
-
-            config = {
-                startHour: parseInt(document.getElementById('cfg-start-h').value),
-                startMin: parseInt(document.getElementById('cfg-start-m').value),
-                meetTime: document.getElementById('cfg-meet-t').value,
-                rot: parseInt(document.getElementById('cfg-rot').value),
-                lunchHour: parseInt(document.getElementById('cfg-lunch').value),
-                preWarmup: parseInt(document.getElementById('cfg-pre-w').value),
-                preGear: parseInt(document.getElementById('cfg-pre-g').value),
-                preStand: parseInt(document.getElementById('cfg-pre-s').value),
-                dbgOn: document.getElementById('cfg-dbg-on').checked,
-                dbgTime: document.getElementById('cfg-dbg-time').value,
-                groups: groups
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-            location.reload();
+        function formatDisplayClock(seconds) {
+            let h = Math.floor(seconds / 3600);
+            let m = Math.floor((seconds % 3600) / 60);
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12;
+            h = h ? h : 12; 
+            return `${h}:${m.toString().padStart(2, '0')} ${ampm}`;
         }
 
-        function init() {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            config = saved ? JSON.parse(saved) : {
-                startHour: 9, startMin: 0, rot: 15, lunchHour: 12, meetTime: "08:15",
-                preWarmup: 10, preGear: 5, preStand: 2, dbgOn: false, dbgTime: "08:00:00",
-                groups: [{enabled: true, label: "Group A"}, {enabled: true, label: "Group B"}, {enabled: true, label: "Group C"}, {enabled: true, label: "Group D"}]
-            };
-
-            document.getElementById('cfg-start-h').value = config.startHour;
-            document.getElementById('cfg-start-m').value = config.startMin;
-            document.getElementById('cfg-meet-t').value = config.meetTime;
-            document.getElementById('cfg-rot').value = config.rot;
-            document.getElementById('cfg-lunch').value = config.lunchHour;
-            document.getElementById('cfg-pre-w').value = config.preWarmup;
-            document.getElementById('cfg-pre-g').value = config.preGear;
-            document.getElementById('cfg-pre-s').value = config.preStand;
-            document.getElementById('cfg-dbg-on').checked = config.dbgOn;
-            document.getElementById('cfg-dbg-time').value = config.dbgTime;
-            renderGroupSettings();
-
-            const viewport = document.getElementById('main-viewport');
-            viewport.innerHTML = '';
-            let enabledCount = 0;
-            config.groups.forEach((grp, idx) => {
-                if (grp.enabled) {
-                    enabledCount++;
-                    viewport.insertAdjacentHTML('beforeend', `
-                        <div id="pane-${idx}" class="group-pane">
-                            <div class="session-tag">SESS 1</div>
-                            <div class="group-label">${grp.label}</div>
-                            <div class="countdown-timer">--:--</div>
-                            <div class="status-label">STANDBY</div>
-                        </div>
-                    `);
-                    groupSchedules[idx] = generateSchedule(idx);
-                }
-            });
-            viewport.className = `layout-${enabledCount}`;
-            setInterval(tick, 1000);
-        }
-
-        function generateSchedule(groupIdx) {
-            let sched = [];
-            let sessionCounter = 1;
-            const baseStartM = config.startMin || 0;
-            const offsetMinutes = baseStartM + (groupIdx * config.rot);
+        // --- 3. Schedule Generation ---
+        function generateSchedule() {
+            masterSchedule = [];
+            let groups = config.schedule.format === "15x4" ? 4 : 3;
+            let durationMins = config.schedule.format === "15x4" ? 15 : 20;
+            let durationSecs = durationMins * 60;
             
-            // Loop from Track Start Hour through evening
-            for (let h = config.startHour; h < 18; h++) {
-                if (config.lunchHour !== 0 && h === config.lunchHour) continue;
-                
-                let start = new Date();
-                start.setHours(h, offsetMinutes, 0, 0);
-                
-                let end = new Date(start.getTime() + (config.rot * 60000));
-                sched.push({ start, end, label: `SESS ${sessionCounter++}` });
-            }
-            return sched;
-        }
+            let currentPointer = timeToSeconds(config.schedule.start);
+            let lunchStart = timeToSeconds(config.schedule.lunchStart);
+            let lunchEnd = timeToSeconds(config.schedule.lunchEnd);
 
-        function formatTime(ms) {
-            const totalSecs = Math.max(0, Math.floor(ms / 1000));
-            const m = Math.floor(totalSecs / 60);
-            const s = totalSecs % 60;
-            return `${m}:${s.toString().padStart(2, '0')}`;
-        }
-
-        function processGroup(idx, schedule) {
-            const now = getNow();
-            const pane = document.getElementById(`pane-${idx}`);
-            if (!pane) return;
-
-            // 1. Meeting Check (Global)
-            if (config.meetTime) {
-                const [mH, mM] = config.meetTime.split(':');
-                const meetStart = new Date(); meetStart.setHours(mH, mM, 0, 0);
-                const meetEnd = new Date(meetStart.getTime() + (20 * 60000)); // Assume 20m meeting
-
-                if (now < meetEnd && now >= meetStart) {
-                    updatePane(pane, 'state-meeting', "MEETING", "0:00", "Briefing in Progress", "EVENT");
-                    return;
-                } else if (now < meetStart) {
-                    updatePane(pane, 'state-meeting', "MEETING", formatTime(meetStart - now), "Meeting Prep", "EVENT");
-                    return;
+            for (let s = 1; s <= config.schedule.sessions; s++) {
+                for (let g = 1; g <= groups; g++) {
+                    if (currentPointer >= lunchStart && currentPointer < lunchEnd) {
+                        currentPointer = lunchEnd;
+                    }
+                    
+                    masterSchedule.push({
+                        sessionNum: s,
+                        groupNum: g,
+                        start: currentPointer,
+                        end: currentPointer + durationSecs
+                    });
+                    currentPointer += durationSecs;
                 }
             }
-
-            // 2. Lunch Check
-            if (config.lunchHour !== 0 && now.getHours() === config.lunchHour) {
-                const nextSession = schedule.find(s => s.start > now);
-                updatePane(pane, 'state-ready', "LUNCH BREAK", formatTime(nextSession.start - now), "LUNCH");
-                return;
-            }
-
-            const current = schedule.find(s => now >= s.start && now < s.end);
-            const next = schedule.find(s => s.start > now);
-
-            if (current) {
-                const remaining = current.end - now;
-                let state = (remaining < (config.preStand * 60000)) ? 'state-ending' : 'state-ready';
-                let status = (remaining < (config.preStand * 60000)) ? 'RETURNING RIDER' : 'HOT SESSION';
-                updatePane(pane, state, status, formatTime(remaining), current.label);
-            } else if (next) {
-                const diffMins = (next.start - now) / 60000;
-                let state = 'state-ready', status = 'STANDBY';
-                if (diffMins <= config.preGear) { state = 'state-gearup'; status = 'GEAR UP'; }
-                else if (diffMins <= config.preWarmup) { state = 'state-warmup'; status = 'WARMUP'; }
-                updatePane(pane, state, status, formatTime(next.start - now), next.label);
-            } else {
-                updatePane(pane, 'state-sleep', 'FINISHED', '--:--', 'OFF');
-            }
+            console.log("Generated Schedule:", masterSchedule);
+            buildUI();
         }
 
-        function updatePane(el, state, status, time, tag) {
-            el.className = `group-pane ${state}`;
-            el.querySelector('.status-label').innerText = status;
-            el.querySelector('.countdown-timer').innerText = time;
-            el.querySelector('.session-tag').innerText = tag;
-        }
-
-        function getNow() {
-            if (!config.dbgOn) return new Date();
-            const val = document.getElementById('cfg-dbg-time').value;
-            if(!val) return new Date();
-            const [h, m, s] = val.split(':');
-            const d = new Date(); d.setHours(h, m, s || 0); return d;
-        }
-
+        // --- 4. Main Engine & UI Update ---
         function tick() {
-            document.getElementById('sys-clock').innerText = getNow().toLocaleTimeString([], { hour12: false });
-            Object.keys(groupSchedules).forEach(idx => processGroup(idx, groupSchedules[idx]));
+            let now = getCurrentTimeSeconds();
+            if (config.debug.enabled) debugSecondsOffset++;
+
+            // Update Global Clock
+            document.getElementById('global-clock').innerText = formatDisplayClock(now);
+            
+            // Global Tracking Variables
+            let meetingTime = timeToSeconds(config.schedule.meeting);
+            let lunchStart = timeToSeconds(config.schedule.lunchStart);
+            let lunchEnd = timeToSeconds(config.schedule.lunchEnd);
+            let lastSessionEnd = masterSchedule.length > 0 ? masterSchedule[masterSchedule.length - 1].end : 0;
+            let globalStatusEl = document.getElementById('global-status');
+            
+            let isMeeting = (now < meetingTime && meetingTime - now <= 3600);
+            let isLunch = (now >= lunchStart && now < lunchEnd);
+
+            // UPDATED: Check if the entire day is over first
+            if (now >= lastSessionEnd && lastSessionEnd > 0) {
+                globalStatusEl.innerText = "TRACK CLOSED - DAY COMPLETE";
+            } else if (isLunch) {
+                globalStatusEl.innerText = "LUNCH BREAK";
+            } else if (now < timeToSeconds(config.schedule.start)) {
+                globalStatusEl.innerText = "MORNING PREP / MEETINGS";
+            } else {
+                globalStatusEl.innerText = "TRACK IS HOT";
+            }
+
+            // Update individual active riders
+            config.riders.forEach((rider, idx) => {
+                if (!rider.active) return;
+                
+                let card = document.getElementById(`rider-card-${idx}`);
+                let statusEl = document.getElementById(`status-${idx}`);
+                let timerEl = document.getElementById(`timer-${idx}`);
+                
+                // Clear previous state classes
+                card.className = "rider-card"; 
+
+                // If day is entirely over, override card immediately
+                if (now >= lastSessionEnd && lastSessionEnd > 0) {
+                    statusEl.innerText = "DONE FOR THE DAY";
+                    timerEl.innerText = "🏁";
+                    card.classList.add('state-done');
+                    return;
+                }
+
+                if (isMeeting) {
+                    statusEl.innerText = "RIDERS MEETING";
+                    timerEl.innerText = formatCountdown(meetingTime - now);
+                    card.classList.add('state-global');
+                    return;
+                }
+                if (isLunch) {
+                    statusEl.innerText = "LUNCH - NEXT SESSION";
+                    let nextSession = masterSchedule.find(s => s.groupNum === rider.group && s.start >= lunchEnd);
+                    timerEl.innerText = nextSession ? formatCountdown(nextSession.start - now) : "--:--";
+                    card.classList.add('state-global');
+                    return;
+                }
+
+                // Normal Session Logic
+                let currentOrNextSession = masterSchedule.find(s => s.groupNum === rider.group && s.end > now);
+                
+                if (!currentOrNextSession) {
+                    statusEl.innerText = "DONE FOR THE DAY";
+                    timerEl.innerText = "🏁";
+                    card.classList.add('state-done');
+                    return;
+                }
+
+                if (now >= currentOrNextSession.start && now < currentOrNextSession.end) {
+                    statusEl.innerText = `SESSION ${currentOrNextSession.sessionNum} - ON TRACK`;
+                    timerEl.innerText = formatCountdown(currentOrNextSession.end - now);
+                    card.classList.add('state-hot');
+                } else {
+                    let delta = currentOrNextSession.start - now;
+                    let warmupSecs = config.alerts.warmup * 60;
+                    let gearupSecs = config.alerts.gearup * 60;
+
+                    statusEl.innerText = `SESSION ${currentOrNextSession.sessionNum} STARTS IN`;
+                    timerEl.innerText = formatCountdown(delta);
+
+                    if (delta <= gearupSecs) {
+                        statusEl.innerText = "GEAR UP - HELMET ON!";
+                        card.classList.add('state-gearup');
+                    } else if (delta <= warmupSecs) {
+                        statusEl.innerText = "WARMUP - CHECK BIKE";
+                        card.classList.add('state-warmup');
+                    } else {
+                        card.classList.add('state-waiting');
+                    }
+                }
+            });
         }
+
+        // --- 5. UI Builder (Grid Setup) ---
+        function buildUI() {
+            const grid = document.getElementById('timer-grid');
+            grid.innerHTML = '';
+            grid.className = ''; // Clear previous classes
+            
+            let activeRiders = config.riders.filter(r => r.active);
+            
+            // Apply specific grid class based on active rider count
+            if (activeRiders.length === 1) {
+                grid.style.gridTemplateColumns = "1fr";
+                grid.classList.add('grid-1');
+            } else if (activeRiders.length === 2) {
+                grid.style.gridTemplateColumns = "1fr 1fr";
+                grid.classList.add('grid-2');
+            } else {
+                grid.style.gridTemplateColumns = "1fr 1fr"; 
+                grid.classList.add('grid-4');
+            }
+
+            config.riders.forEach((rider, idx) => {
+                if (!rider.active) return;
+                
+                let div = document.createElement('div');
+                div.id = `rider-card-${idx}`;
+                div.className = 'rider-card state-waiting';
+                div.innerHTML = `
+                    <div class="rider-name">${rider.name}</div>
+                    <div class="rider-group">Group ${rider.group}</div>
+                    <div class="session-status" id="status-${idx}">LOADING...</div>
+                    <div class="countdown" id="timer-${idx}">--:--</div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        // --- 6. Configuration Modal Logic ---
+        function populateSettingsForm() {
+            document.getElementById('cfg-meeting').value = config.schedule.meeting;
+            document.getElementById('cfg-start').value = config.schedule.start;
+            document.getElementById('cfg-lunch-start').value = config.schedule.lunchStart;
+            document.getElementById('cfg-lunch-end').value = config.schedule.lunchEnd;
+            document.getElementById('cfg-format').value = config.schedule.format;
+            document.getElementById('cfg-sessions').value = config.schedule.sessions;
+            document.getElementById('cfg-warmup').value = config.alerts.warmup;
+            document.getElementById('cfg-gearup').value = config.alerts.gearup;
+            document.getElementById('cfg-debug-en').checked = config.debug.enabled;
+            document.getElementById('cfg-debug-time').value = config.debug.time;
+
+            let ridersHtml = '';
+            config.riders.forEach((r, i) => {
+                let tabIndexStart = 10 + (i*3);
+                ridersHtml += `
+                    <div style="margin-bottom: 1vh;">
+                        <input type="checkbox" id="cfg-r${i}-active" ${r.active ? 'checked' : ''} tabindex="${tabIndexStart}">
+                        <input type="text" id="cfg-r${i}-name" value="${r.name}" style="width: 150px" tabindex="${tabIndexStart+1}">
+                        <label style="width:auto">Grp:</label>
+                        <input type="number" id="cfg-r${i}-group" value="${r.group}" min="1" max="4" style="width: 60px" tabindex="${tabIndexStart+2}">
+                    </div>
+                `;
+            });
+            document.getElementById('rider-configs').innerHTML = ridersHtml;
+        }
+
+        function saveSettings() {
+            config.schedule.meeting = document.getElementById('cfg-meeting').value;
+            config.schedule.start = document.getElementById('cfg-start').value;
+            config.schedule.lunchStart = document.getElementById('cfg-lunch-start').value;
+            config.schedule.lunchEnd = document.getElementById('cfg-lunch-end').value;
+            config.schedule.format = document.getElementById('cfg-format').value;
+            config.schedule.sessions = parseInt(document.getElementById('cfg-sessions').value);
+            config.alerts.warmup = parseInt(document.getElementById('cfg-warmup').value);
+            config.alerts.gearup = parseInt(document.getElementById('cfg-gearup').value);
+            config.debug.enabled = document.getElementById('cfg-debug-en').checked;
+            config.debug.time = document.getElementById('cfg-debug-time').value;
+
+            config.riders.forEach((r, i) => {
+                r.active = document.getElementById(`cfg-r${i}-active`).checked;
+                r.name = document.getElementById(`cfg-r${i}-name`).value;
+                r.group = parseInt(document.getElementById(`cfg-r${i}-group`).value);
+            });
+
+            localStorage.setItem('trackDayConfig', JSON.stringify(config));
+            debugSecondsOffset = 0; 
+            document.getElementById('settings-modal').classList.remove('active');
+            
+            generateSchedule();
+            tick(); 
+        }
+
+        // Event Listeners
+        document.getElementById('btn-settings').addEventListener('click', () => {
+            populateSettingsForm();
+            document.getElementById('settings-modal').classList.add('active');
+            document.getElementById('cfg-meeting').focus(); 
+        });
+        document.getElementById('btn-save').addEventListener('click', saveSettings);
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            document.getElementById('settings-modal').classList.remove('active');
+        });
+
+        // Initialize App
+        generateSchedule();
+        tickInterval = setInterval(tick, 1000);
+
     </script>
 </body>
 </html>
