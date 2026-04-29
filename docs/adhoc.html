@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Day Command</title>
+    <style>
+        /* Global Reset to prevent borders/padding from breaking viewport math */
+        * {
+            box-sizing: border-box;
+        }
+
+        /* CSS Variables for Garage TV visibility */
+        :root {
+            --bg-dark: #0f172a;
+            --text-light: #f8fafc;
+            --color-waiting: #334155;
+            --color-warmup: #d97706; /* Yellow/Orange */
+            --color-gearup: #dc2626; /* Red */
+            --color-hot: #16a34a;    /* Green */
+            --color-past: #020617;   /* Dimmed for past events */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Massive Garage Clock */
+        header {
+            flex: 0 0 30vh; /* Fixed height for the header */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #020617;
+            border-bottom: 4px solid #1e293b;
+            position: relative;
+        }
+        #global-clock {
+            font-size: 22vh;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+
+        /* Config Button */
+        #btn-settings {
+            position: absolute; top: 2vh; right: 2vw; opacity: 0.5;
+            font-size: 3vh; padding: 1.5vh 2vw; background: rgba(255,255,255,0.1); 
+            color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; cursor: pointer;
+        }
+        #btn-settings:focus, #btn-settings:hover { opacity: 1; outline: none; border-color: #38bdf8; }
+
+        /* Dynamic Grid for up to 4 Timers */
+        #timer-grid {
+            flex: 1; /* Takes up all remaining vertical space */
+            min-height: 0; /* Crucial flexbox fix to prevent overflow */
+            display: grid;
+            gap: 2vw;
+            padding: 2vw;
+        }
+
+        .event-card {
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2vh;
+            transition: background-color 0.5s ease;
+            background-color: var(--color-waiting);
+            border: 4px solid transparent;
+            overflow: hidden;
+        }
+
+        /* Text Sizing Variables managed by grid classes */
+        .event-name { font-weight: bold; margin-bottom: 1vh; }
+        .event-time { opacity: 0.8; margin-bottom: 2vh; font-family: monospace; }
+        .countdown { 
+            font-weight: 900; 
+            font-variant-numeric: tabular-nums;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            line-height: 1;
+        }
+        .event-status { text-transform: uppercase; font-weight: bold; margin-top: 1vh; letter-spacing: 2px; }
+
+        /* Grid specific sizing to fill the space securely */
+        #timer-grid.grid-1 { 
+            grid-template-columns: 1fr; 
+            grid-template-rows: 1fr; 
+        }
+        #timer-grid.grid-1 .event-name { font-size: 8vh; }
+        #timer-grid.grid-1 .event-time { font-size: 5vh; }
+        #timer-grid.grid-1 .countdown { font-size: 30vh; }
+        #timer-grid.grid-1 .event-status { font-size: 6vh; }
+
+        #timer-grid.grid-2 { 
+            grid-template-columns: 1fr 1fr; 
+            grid-template-rows: 1fr; 
+        }
+        #timer-grid.grid-2 .event-name { font-size: 6vh; }
+        #timer-grid.grid-2 .event-time { font-size: 4vh; }
+        #timer-grid.grid-2 .countdown { font-size: 20vh; }
+        #timer-grid.grid-2 .event-status { font-size: 4vh; }
+
+        #timer-grid.grid-4 { 
+            grid-template-columns: 1fr 1fr; 
+            grid-template-rows: 1fr 1fr; /* Explicitly enforce 2 rows to prevent stretch overflow */
+        }
+        #timer-grid.grid-4 .event-name { font-size: 4.5vh; margin-bottom: 0.5vh; }
+        #timer-grid.grid-4 .event-time { font-size: 3vh; margin-bottom: 1vh; }
+        #timer-grid.grid-4 .countdown { font-size: 14vh; }
+        #timer-grid.grid-4 .event-status { font-size: 3vh; }
+
+        /* State Classes */
+        .state-waiting { background-color: var(--color-waiting); }
+        .state-warmup { background-color: var(--color-warmup); }
+        .state-gearup { background-color: var(--color-gearup); animation: pulse 2s infinite; }
+        .state-hot { background-color: var(--color-hot); }
+        /* Dim completed events while they sit in their grace period */
+        .state-completed { background-color: #020617; color: #475569; border: 2px solid #1e293b; }
+
+        @keyframes pulse {
+            0% { border-color: transparent; box-shadow: 0 0 0 rgba(220, 38, 38, 0); }
+            50% { border-color: #fca5a5; box-shadow: 0 0 20px rgba(220, 38, 38, 0.8); }
+            100% { border-color: transparent; box-shadow: 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
+        /* Settings Modal */
+        #settings-modal {
+            display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.98); z-index: 1000; padding: 5vh 5vw; overflow-y: auto;
+        }
+        #settings-modal.active { display: block; }
+        
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 2vh; margin-bottom: 4vh;}
+        .modal-header h2 { margin: 0; font-size: 5vh; }
+
+        .settings-row { 
+            display: flex; gap: 1vw; align-items: center; margin-bottom: 2vh; 
+            background: #1e293b; padding: 2vh; border-radius: 10px;
+        }
+        
+        input { 
+            font-size: 2.5vh; padding: 1vh; background: #0f172a; color: white; 
+            border: 1px solid #475569; border-radius: 6px;
+        }
+        input:focus, button:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+        
+        .btn { font-size: 2.5vh; padding: 1.5vh 2vw; border: none; border-radius: 6px; cursor: pointer; color: white; }
+        .btn-primary { background: #2563eb; }
+        .btn-success { background: #16a34a; }
+        .btn-danger { background: #dc2626; padding: 1vh 1vw; }
+        .btn-secondary { background: #475569; }
+
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 2vh; color: #94a3b8; margin-bottom: 0.5vh; }
+
+        .empty-state { text-align: center; color: #64748b; font-size: 4vh; margin-top: 10vh; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div id="global-clock">00:00</div>
+        <button id="btn-settings" tabindex="1">⚙️ Manage Events</button>
+    </header>
+
+    <main id="timer-grid">
+        </main>
+
+    <div id="settings-modal">
+        <div class="modal-header">
+            <h2>Race Day Event Queue</h2>
+            <div>
+                <button class="btn btn-secondary" id="btn-cancel" tabindex="100">Cancel</button>
+                <button class="btn btn-primary" id="btn-save" tabindex="101">Save Changes</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 4vh; background: #1e293b; padding: 2vh; border-radius: 10px; display: flex; gap: 3vw; align-items: center;">
+            <div class="form-group">
+                <label>Debug Override Time:</label>
+                <input type="time" id="cfg-debug-time">
+                <span style="font-size: 1.5vh; color: #64748b; margin-top: 0.5vh;">Leave blank for real-time</span>
+            </div>
+            <div class="form-group">
+                <label>Keep completed events on screen (mins):</label>
+                <input type="number" id="cfg-grace-period" min="0" style="width: 120px;">
+                <span style="font-size: 1.5vh; color: #64748b; margin-top: 0.5vh;">Time before dropping off list</span>
+            </div>
+        </div>
+
+        <div id="event-list-container">
+            </div>
+
+        <button class="btn btn-success" id="btn-add-event" style="margin-top: 2vh;">+ Add New Event</button>
+    </div>
+
+    <script>
+        // --- 1. Default Data & Initialization ---
+        const DEFAULT_CONFIG = {
+            debugTime: "",
+            gracePeriod: 15,
+            events: [
+                { id: 1, name: "Super Street Mtg 1", time: "08:00", yellow: 15, red: 5 },
+                { id: 2, name: "Super Street Mtg 2", time: "09:15", yellow: 10, red: 5 },
+                { id: 3, name: "Mandatory Riders Mtg", time: "11:00", yellow: 15, red: 5 },
+                { id: 4, name: "Practice Session", time: "13:30", yellow: 20, red: 10 },
+                { id: 5, name: "Race 1 Grid", time: "15:45", yellow: 15, red: 5 }
+            ]
+        };
+
+        let config = JSON.parse(localStorage.getItem('raceDayConfig')) || DEFAULT_CONFIG;
+        if (typeof config.gracePeriod === 'undefined') config.gracePeriod = 15; 
+
+        let tickInterval;
+
+        // --- 2. Time Math Utilities ---
+        function timeToSeconds(timeStr) {
+            if (!timeStr) return 0;
+            let parts = timeStr.split(':');
+            return (parseInt(parts[0] || 0) * 3600) + (parseInt(parts[1] || 0) * 60) + parseInt(parts[2] || 0);
+        }
+
+        function formatCountdown(seconds) {
+            let isNeg = seconds < 0;
+            let absSecs = Math.abs(seconds);
+            let h = Math.floor(absSecs / 3600);
+            let m = Math.floor((absSecs % 3600) / 60);
+            let s = absSecs % 60;
+            
+            let timeStr = h > 0 
+                ? `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+                : `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                
+            return isNeg ? `+${timeStr}` : timeStr;
+        }
+
+        function getCurrentTimeSeconds() {
+            if (config.debugTime) {
+                return timeToSeconds(config.debugTime);
+            }
+            let d = new Date();
+            return (d.getHours() * 3600) + (d.getMinutes() * 60) + d.getSeconds();
+        }
+
+        function formatDisplayClock(seconds) {
+            let h = Math.floor(seconds / 3600);
+            let m = Math.floor((seconds % 3600) / 60);
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12;
+            h = h ? h : 12; 
+            return `${h}:${m.toString().padStart(2, '0')} <span style="font-size: 0.5em; color: #64748b;">${ampm}</span>`;
+        }
+
+        function formatTime12Hr(timeStr) {
+            let h = parseInt(timeStr.split(':')[0]);
+            let m = timeStr.split(':')[1];
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12; h = h ? h : 12;
+            return `${h}:${m} ${ampm}`;
+        }
+
+        // --- 3. Core Engine ---
+        function tick() {
+            let now = getCurrentTimeSeconds();
+            document.getElementById('global-clock').innerHTML = formatDisplayClock(now);
+
+            let gracePeriodSecs = (config.gracePeriod || 0) * 60;
+
+            let upcomingEvents = config.events.map(ev => {
+                let targetSecs = timeToSeconds(ev.time);
+                return {
+                    ...ev,
+                    targetSecs: targetSecs,
+                    delta: targetSecs - now
+                };
+            })
+            .filter(ev => ev.delta > -gracePeriodSecs)
+            .sort((a, b) => a.delta - b.delta)
+            .slice(0, 4);
+
+            renderGrid(upcomingEvents);
+        }
+
+        function renderGrid(events) {
+            const grid = document.getElementById('timer-grid');
+            
+            if (events.length === 0) {
+                grid.className = '';
+                grid.innerHTML = `<div class="empty-state">No upcoming events. Open settings to add your schedule.</div>`;
+                return;
+            }
+
+            grid.className = '';
+            if (events.length === 1) grid.classList.add('grid-1');
+            else if (events.length === 2) grid.classList.add('grid-2');
+            else grid.classList.add('grid-4'); 
+
+            grid.innerHTML = events.map(ev => {
+                let stateClass = 'state-waiting';
+                let statusText = 'WAITING';
+                
+                let yellowSecs = (ev.yellow || 0) * 60;
+                let redSecs = (ev.red || 0) * 60;
+
+                if (ev.delta <= 0) {
+                    stateClass = 'state-completed';
+                    statusText = 'COMPLETED';
+                } else if (redSecs > 0 && ev.delta <= redSecs) {
+                    stateClass = 'state-gearup';
+                    statusText = 'GEAR UP - FINAL CALL';
+                } else if (yellowSecs > 0 && ev.delta <= yellowSecs) {
+                    stateClass = 'state-warmup';
+                    statusText = 'WARMUP / PREP';
+                }
+
+                return `
+                    <div class="event-card ${stateClass}">
+                        <div class="event-name">${ev.name}</div>
+                        <div class="event-time">Target: ${formatTime12Hr(ev.time)}</div>
+                        <div class="countdown">${formatCountdown(ev.delta)}</div>
+                        <div class="event-status">${statusText}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 4. Settings UI Management ---
+        function renderSettings() {
+            document.getElementById('cfg-debug-time').value = config.debugTime || "";
+            document.getElementById('cfg-grace-period').value = config.gracePeriod;
+            
+            const container = document.getElementById('event-list-container');
+            container.innerHTML = config.events.map((ev, idx) => `
+                <div class="settings-row" id="row-${ev.id}">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Event Name</label>
+                        <input type="text" class="cfg-name" value="${ev.name}" placeholder="e.g. Race 1 Grid">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Time</label>
+                        <input type="time" class="cfg-time" value="${ev.time}">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Yellow Alert (mins)</label>
+                        <input type="number" class="cfg-yellow" value="${ev.yellow}" min="0">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Red Alert (mins)</label>
+                        <input type="number" class="cfg-red" value="${ev.red}" min="0">
+                    </div>
+                    <button class="btn btn-danger" onclick="removeEvent(${ev.id})" style="margin-top: 3vh;" title="Delete">X</button>
+                </div>
+            `).join('');
+        }
+
+        window.removeEvent = function(id) {
+            config.events = config.events.filter(ev => ev.id !== id);
+            renderSettings();
+        };
+
+        document.getElementById('btn-add-event').addEventListener('click', () => {
+            let newId = config.events.length > 0 ? Math.max(...config.events.map(e => e.id)) + 1 : 1;
+            config.events.push({ id: newId, name: "", time: "12:00", yellow: 10, red: 5 });
+            renderSettings();
+            const modal = document.getElementById('settings-modal');
+            modal.scrollTop = modal.scrollHeight;
+        });
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            config.debugTime = document.getElementById('cfg-debug-time').value;
+            config.gracePeriod = parseInt(document.getElementById('cfg-grace-period').value) || 0;
+            
+            let newEvents = [];
+            document.querySelectorAll('.settings-row').forEach(row => {
+                let id = parseInt(row.id.replace('row-', ''));
+                newEvents.push({
+                    id: id,
+                    name: row.querySelector('.cfg-name').value,
+                    time: row.querySelector('.cfg-time').value,
+                    yellow: parseInt(row.querySelector('.cfg-yellow').value) || 0,
+                    red: parseInt(row.querySelector('.cfg-red').value) || 0
+                });
+            });
+            
+            config.events = newEvents.sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
+            
+            localStorage.setItem('raceDayConfig', JSON.stringify(config));
+            document.getElementById('settings-modal').classList.remove('active');
+            tick(); 
+        });
+
+        document.getElementById('btn-settings').addEventListener('click', () => {
+            renderSettings();
+            document.getElementById('settings-modal').classList.add('active');
+        });
+
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            config = JSON.parse(localStorage.getItem('raceDayConfig')) || DEFAULT_CONFIG;
+            document.getElementById('settings-modal').classList.remove('active');
+        });
+
+        tick(); 
+        setInterval(tick, 1000); 
+
+    </script>
+</body>
+</html>
