@@ -3,12 +3,19 @@
     "name": "Penguin Thompson - Group 3",
     "events": [
       { "name": "Tech & Reg", "time": "07:00", "yellow": 0, "red": 0 },
-      { "name": "Morning Meeting", "time": "08:15", "yellow": 15, "red": 5 },
+      { "name": "Morning Meeting", "time": "08:15", "yellow": 10, "red": 5 },
+      { "name": "Track Walk & Classroom", "time": "08:30", "yellow": 10, "red": 0 },
       { "name": "Grp 3 Guided", "time": "10:30", "yellow": 15, "red": 5 },
+      { "name": "Grp 3 Classroom", "time": "10:45", "yellow": 5, "red": 0 },
       { "name": "Grp 3 Open", "time": "11:30", "yellow": 15, "red": 5 },
+      { "name": "Grp 3 Drills", "time": "11:45", "yellow": 5, "red": 0 },
       { "name": "Grp 3 Open", "time": "12:30", "yellow": 15, "red": 5 },
+      { "name": "Lunch Break", "time": "13:00", "yellow": 0, "red": 0 },
+      { "name": "Grp 3 Classroom", "time": "14:00", "yellow": 5, "red": 0 },
       { "name": "Grp 3 Open", "time": "14:30", "yellow": 15, "red": 5 },
+      { "name": "Grp 3 Classroom", "time": "14:55", "yellow": 5, "red": 0 },
       { "name": "Grp 3 Open", "time": "15:30", "yellow": 15, "red": 5 },
+      { "name": "Grp 3 Final Class", "time": "15:55", "yellow": 5, "red": 0 },
       { "name": "Grp 3 Open", "time": "16:30", "yellow": 15, "red": 5 },
       { "name": "Grp 3 Open", "time": "17:30", "yellow": 15, "red": 5 }
     ]
@@ -21,6 +28,7 @@
       { "name": "Session 1", "time": "09:20", "yellow": 15, "red": 5 },
       { "name": "Session 2", "time": "10:20", "yellow": 15, "red": 5 },
       { "name": "Session 3", "time": "11:20", "yellow": 15, "red": 5 },
+      { "name": "Lunch Break", "time": "12:20", "yellow": 0, "red": 0 },
       { "name": "Session 4", "time": "13:20", "yellow": 15, "red": 5 },
       { "name": "Session 5", "time": "14:20", "yellow": 15, "red": 5 },
       { "name": "Session 6", "time": "15:20", "yellow": 15, "red": 5 },
