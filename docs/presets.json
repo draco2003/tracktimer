@@ -24,12 +24,12 @@
     "name": "Precision Jennings GP - Intermediate",
     "events": [
       { "name": "Tech & Reg", "time": "07:00", "yellow": 0, "red": 0 },
-      { "name": "Riders Meeting", "time": "08:10", "yellow": 10, "red": 5 },
+      { "name": "Riders Meeting", "time": "08:20", "yellow": 10, "red": 5 },
       { "name": "Session 1", "time": "09:20", "yellow": 15, "red": 5 },
       { "name": "Session 2", "time": "10:20", "yellow": 15, "red": 5 },
       { "name": "Session 3", "time": "11:20", "yellow": 15, "red": 5 },
-      { "name": "Lunch Break", "time": "12:20", "yellow": 0, "red": 0 },
-      { "name": "Session 4", "time": "13:20", "yellow": 15, "red": 5 },
+      { "name": "Session 4", "time": "12:20", "yellow": 15, "red": 5 },
+      { "name": "Lunch Break", "time": "13:00", "yellow": 0, "red": 0 },
       { "name": "Session 5", "time": "14:20", "yellow": 15, "red": 5 },
       { "name": "Session 6", "time": "15:20", "yellow": 15, "red": 5 },
       { "name": "Session 7", "time": "16:20", "yellow": 15, "red": 5 }
